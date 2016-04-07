@@ -35,6 +35,7 @@
 #include "UncoupledProcessesTimeLoop.h"
 
 #include "ProcessLib/GroundwaterFlow/GroundwaterFlowProcess-fwd.h"
+#include "ProcessLib/HeatTransportProcess-fwd.h"
 
 
 namespace detail
