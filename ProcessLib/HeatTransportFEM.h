@@ -15,6 +15,7 @@
 
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
 #include "NumLib/Fem/ShapeMatrixPolicy.h"
+#include "NumLib/Function/Interpolation.h"
 
 #include "Parameter.h"
 #include "ProcessUtil.h"
@@ -59,7 +60,8 @@ public:
             std::size_t const local_matrix_size,
             unsigned const integration_order,
             Parameter<double, MeshLib::Element const&> const&
-                thermal_conductivity)
+                thermal_conductivity
+            /* ... */)
     {
         _integration_order = integration_order;
 
@@ -76,7 +78,7 @@ public:
         _localM.reset(new NodalMatrixType(local_matrix_size, local_matrix_size));
     }
 
-    void assemble(double const /*t*/, std::vector<double> const& /*local_x*/) override
+    void assemble(double const /*t*/, std::vector<double> const& local_x) override
     {
         _localK->setZero();
         _localM->setZero();
@@ -86,8 +88,17 @@ public:
         IntegrationMethod_ integration_method(_integration_order);
         unsigned const n_integration_points = integration_method.getNPoints();
 
-        for (std::size_t ip(0); ip < n_integration_points; ip++) {
+        double T_int_pt = 0.0;
+        std::array<double*, 1> const int_pt_array = { &T_int_pt };
+
+        for (std::size_t ip(0); ip < n_integration_points; ip++)
+        {
             auto const& sm = _shape_matrices[ip];
+
+            NumLib::shapeFunctionInterpolate(local_x, sm.N, int_pt_array);
+
+            // use T_int_pt here ...
+
             auto const& wp = integration_method.getWeightedPoint(ip);
             _localK->noalias() += sm.dNdx.transpose() *
                                   _thermal_conductivity() * sm.dNdx *
