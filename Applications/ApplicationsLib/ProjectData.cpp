@@ -35,7 +35,8 @@
 
 #include "ProcessLib/GroundwaterFlow/CreateGroundwaterFlowProcess.h"
 #include "ProcessLib/TES/CreateTESProcess.h"
-#include "ProcessLib/HeatTransport/CreatHeatTransportProcess.h"
+#include "ProcessLib/HeatTransport/CreateHeatTransportProcess.h"
+#include "ProcessLib/Freezing/CreateFreezingProcess"
 
 namespace detail
 {
@@ -170,17 +171,18 @@ void ProjectData::buildProcesses()
             //! \ogs_file_param{process__time_discretization}
             pc.getConfigSubtree("time_discretization"));
 
-        if (type == "GROUNDWATER_FLOW")
-        {
-            // The existence check of the in the configuration referenced
-            // process variables is checked in the physical process.
-            // TODO at the moment we have only one mesh, later there can be
-            // several meshes. Then we have to assign the referenced mesh
-            // here.
-            _processes.emplace_back(
-                ProcessLib::GroundwaterFlow::createGroundwaterFlowProcess(
-                    *_mesh_vec[0], *nl_slv, std::move(time_disc),
-                    _process_variables, _parameters, pc));
+		if (type == "GROUNDWATER_FLOW")
+		{
+			// The existence check of the in the configuration referenced
+			// process variables is checked in the physical process.
+			// TODO at the moment we have only one mesh, later there can be
+			// several meshes. Then we have to assign the referenced mesh
+			// here.
+			_processes.emplace_back(
+				ProcessLib::GroundwaterFlow::
+				createGroundwaterFlowProcess<GlobalSetupType>(
+				    *_mesh_vec[0], *nl_slv, std::move(time_disc),
+				    _process_variables, _parameters, pc));
         }
         else if (type == "HEAT_TRANSPORT")
         {
@@ -191,6 +193,18 @@ void ProjectData::buildProcesses()
             // here.
             _processes.emplace_back(
                 ProcessLib::createHeatTransportProcess<GlobalSetupType>(
+                    *_mesh_vec[0], *nl_slv, std::move(time_disc),
+                    _process_variables, _parameters, pc));
+        }
+        /*else if (type == "Freezing")
+        {
+            // The existence check of the in the configuration referenced
+            // process variables is checked in the physical process.
+            // TODO at the moment we have only one mesh, later there can be
+            // several meshes. Then we have to assign the referenced mesh
+            // here.
+            _processes.emplace_back(
+                ProcessLib::createFreezingProcess<GlobalSetupType>(
                     *_mesh_vec[0], *nl_slv, std::move(time_disc),
                     _process_variables, _parameters, pc));
         }
