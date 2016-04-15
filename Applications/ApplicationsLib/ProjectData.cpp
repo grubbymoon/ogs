@@ -36,6 +36,7 @@
 
 #include "ProcessLib/GroundwaterFlow/GroundwaterFlowProcess-fwd.h"
 #include "ProcessLib/HeatTransportProcess-fwd.h"
+#include "ProcessLib/FreezingProcess-fwd.h"
 
 
 namespace detail
@@ -191,7 +192,7 @@ void ProjectData::buildProcesses()
                     *_mesh_vec[0], *nl_slv, std::move(time_disc),
                     _process_variables, _parameters, pc));
         }
-        /*else if (type == "Freezing")
+        else if (type == "FREEZING")
         {
             // The existence check of the in the configuration referenced
             // process variables is checked in the physical process.
@@ -202,7 +203,7 @@ void ProjectData::buildProcesses()
                 ProcessLib::createFreezingProcess<GlobalSetupType>(
                     *_mesh_vec[0], *nl_slv, std::move(time_disc),
                     _process_variables, _parameters, pc));
-        } */
+        }
 		else
 		{
 			ERR("Unknown process type: %s", type.c_str());
