@@ -19,6 +19,7 @@
 
 #include "Parameter.h"
 #include "ProcessUtil.h"
+#include "FreezingMaterialModel.h"
 
 
 namespace ProcessLib
@@ -82,8 +83,22 @@ public:
     {
         _localK->setZero();
         _localM->setZero();
-        const double density = 1000 ;
-        const double heat_capacity = 3000 ;
+        const double density_water = 1000.0 ;
+        const double density_ice = 1000.0 ; // for the mass balance
+        const double density_soil = 2000.0 ;
+        const double specific_heat_capacity_soil = 1000.0 ;
+        const double specific_heat_capacity_ice = 2000.0 ;
+        const double specific_heat_capacity_water = 4200.0 ;
+        const double thermal_conductivity_ice = 2 ;
+        const double thermal_conductivity_soil = 3.2 ;
+        const double thermal_conductivity_water = 0.6 ;
+        double porosity = 0.5 ;
+        double phi_i = 0.0 ;
+        double sigmoid_coeff = 5.0 ;
+        double latent_heat = 334000 ;
+        double sigmoid_derive = 0.0 ;
+        double thermal_conductivity = 0.0 ;
+        double heat_capacity = 0.0 ;
 
         IntegrationMethod_ integration_method(_integration_order);
         unsigned const n_integration_points = integration_method.getNPoints();
@@ -99,12 +114,21 @@ public:
 
             // use T_int_pt here ...
 
+            phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
+
+            sigmoid_derive = Calcsigmoidderive(phi_i, sigmoid_coeff, porosity);
+
+            thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
+thermal_conductivity_soil, thermal_conductivity_water);
+
+            heat_capacity = EquaHeatCapacity(phi_i, density_water, density_soil, density_ice,
+ specific_heat_capacity_soil, specific_heat_capacity_ice, specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
+
             auto const& wp = integration_method.getWeightedPoint(ip);
             _localK->noalias() += sm.dNdx.transpose() *
-                                  _thermal_conductivity() * sm.dNdx *
+                                  thermal_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight();
-            _localM->noalias() += sm.N *
-                                  density*heat_capacity*sm.N.transpose() *
+            _localM->noalias() += sm.N *heat_capacity*sm.N.transpose() *
                                   sm.detJ * wp.getWeight();
         }
     }
