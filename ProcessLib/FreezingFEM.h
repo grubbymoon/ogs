@@ -122,7 +122,8 @@ public:
 thermal_conductivity_soil, thermal_conductivity_water);
 
             heat_capacity = EquaHeatCapacity(phi_i, density_water, density_soil, density_ice,
- specific_heat_capacity_soil, specific_heat_capacity_ice, specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
+ specific_heat_capacity_soil, specific_heat_capacity_ice,
+ specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
 
             auto const& wp = integration_method.getWeightedPoint(ip);
             _localK->noalias() += sm.dNdx.transpose() *
