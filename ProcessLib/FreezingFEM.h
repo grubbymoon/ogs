@@ -10,6 +10,7 @@
 #ifndef PROCESS_LIB_FREEZINGPROCESS_FEM_H_
 #define PROCESS_LIB_FREEZINGPROCESS_FEM_H_
 
+#include <Eigen/Dense>
 #include <vector>
 
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
@@ -21,6 +22,7 @@
 #include "ProcessLib/LocalAssemblerTraits.h"
 #include "FreezingProcessData.h"
 #include "FreezingMaterialModel.h"
+using namespace Eigen;
 
 namespace ProcessLib
 {
@@ -39,8 +41,8 @@ class LocalAssemblerData : public ProcessLib::LocalAssemblerInterface<GlobalMatr
     using ShapeMatrices = typename ShapeMatricesType::ShapeMatrices;
 
     using LAT = LocalAssemblerTraits<ShapeMatricesType, ShapeFunction::NPOINTS,
-        1 /* number of pcs vars */, GlobalDim>;
-
+        2 /* number of pcs vars */, GlobalDim>;
+    // Two Pcs variable T and P
     using NodalMatrixType = typename LAT::LocalMatrix;
     using NodalVectorType = typename LAT::LocalVector;
 
@@ -87,14 +89,14 @@ public:
         unsigned const n_integration_points = integration_method.getNPoints();
 
         double T_int_pt = 0.0;
-        // double p_int_pt = 0.0;
+        double p_int_pt = 0.0;
 
         for (std::size_t ip(0); ip < n_integration_points; ip++)
         {
             auto const& sm = _shape_matrices[ip];
-
-            // Order matters: First T, then p!
-            NumLib::shapeFunctionInterpolate(local_x, sm.N, T_int_pt/*, p_int_pt*/);
+            int n = n_integration_points;
+            // Order matters: First T, then P!
+            NumLib::shapeFunctionInterpolate(local_x, sm.N, T_int_pt, p_int_pt);
 
             // use T_int_pt here ...
 
@@ -110,11 +112,16 @@ thermal_conductivity_soil, thermal_conductivity_water);
  specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
 
             auto const& wp = integration_method.getWeightedPoint(ip);
-            _localK.noalias() += sm.dNdx.transpose() *
+            _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight();
-            _localM.noalias() += sm.N *heat_capacity*sm.N.transpose() *
+            _Mtt.noalias() += sm.N *heat_capacity*sm.N.transpose() *
                                   sm.detJ * wp.getWeight();
+
+            auto const num_nodes = ShapeFunction::NUM_POINTS;
+
+            _localK.block<num_nodes,num_nodes>(0,0).noalias() += _Ktt;
+            _localM.block<num_nodes,num_nodes>(0,0).noalias() += _Mtt;
         }
     }
 
