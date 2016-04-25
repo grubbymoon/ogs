@@ -10,16 +10,14 @@
 #ifndef PROCESS_LIB_HEATTRANSPORT_FEM_H_
 #define PROCESS_LIB_HEATTRANSPORT_FEM_H_
 
-#include <memory>
 #include <vector>
 
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
 #include "NumLib/Fem/ShapeMatrixPolicy.h"
-#include "NumLib/Function/Interpolation.h"
-
-#include "Parameter.h"
-#include "ProcessUtil.h"
-
+#include "ProcessLib/LocalAssemblerInterface.h"
+#include "ProcessLib/Parameter.h"
+#include "ProcessLib/ProcessUtil.h"
+#include "HeatTransportProcessData.h"
 
 namespace ProcessLib
 {
@@ -27,83 +25,56 @@ namespace ProcessLib
 namespace HeatTransport
 {
 
-template <typename GlobalMatrix, typename GlobalVector>
-class LocalAssemblerDataInterface
-{
-public:
-    virtual ~LocalAssemblerDataInterface() = default;
-
-    virtual void assemble(double const t, std::vector<double> const& local_x) = 0;
-
-    virtual void addToGlobal(AssemblerLib::LocalToGlobalIndexMap::RowColumnIndices const&,
-            GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b) const = 0;
-};
-
-template <typename ShapeFunction_,
-         typename IntegrationMethod_,
+template <typename ShapeFunction,
+         typename IntegrationMethod,
          typename GlobalMatrix,
          typename GlobalVector,
          unsigned GlobalDim>
-class LocalAssemblerData : public LocalAssemblerDataInterface<GlobalMatrix, GlobalVector>
+class LocalAssemblerData : public ProcessLib::LocalAssemblerInterface<GlobalMatrix, GlobalVector>
 {
-public:
-    using ShapeFunction = ShapeFunction_;
     using ShapeMatricesType = ShapeMatrixPolicyType<ShapeFunction, GlobalDim>;
     using NodalMatrixType = typename ShapeMatricesType::NodalMatrixType;
     using NodalVectorType = typename ShapeMatricesType::NodalVectorType;
     using ShapeMatrices = typename ShapeMatricesType::ShapeMatrices;
 
+public:
     /// The thermal_conductivity factor is directly integrated into the local
     /// element matrix.
-    LocalAssemblerData(
-            MeshLib::Element const& e,
-            std::size_t const local_matrix_size,
-            unsigned const integration_order,
-            Parameter<double, MeshLib::Element const&> const&
-                thermal_conductivity
-            /* ... */)
+    LocalAssemblerData(MeshLib::Element const& element,
+                       std::size_t const local_matrix_size,
+                       unsigned const integration_order,
+                       HeatTransportProcessData const& process_data)
+        : _element(element)
+        , _shape_matrices(
+              initShapeMatrices<ShapeFunction, ShapeMatricesType, IntegrationMethod, GlobalDim>(
+                  element, integration_order))
+        , _process_data(process_data)
+        , _localK(local_matrix_size, local_matrix_size) // TODO narrowing conversion
+        , _localM(local_matrix_size, local_matrix_size)
+        , _integration_order(integration_order)
+    {}
+
+    void assemble(double const /*t*/, std::vector<double> const& /*local_x*/) override
     {
-        _integration_order = integration_order;
-
-        _shape_matrices =
-            initShapeMatrices<ShapeFunction, ShapeMatricesType, IntegrationMethod_, GlobalDim>(
-                e, integration_order);
-
-        _thermal_conductivity = [&thermal_conductivity, &e]()
-        {
-            return thermal_conductivity(e);
-        };
-
-        _localK.reset(new NodalMatrixType(local_matrix_size, local_matrix_size));
-        _localM.reset(new NodalMatrixType(local_matrix_size, local_matrix_size));
-    }
-
-    void assemble(double const /*t*/, std::vector<double> const& local_x) override
-    {
-        _localK->setZero();
-        _localM->setZero();
+        _localK.setZero();
+        _localM.setZero();
         const double density = 1000 ;
         const double heat_capacity = 3000 ;
 
-        IntegrationMethod_ integration_method(_integration_order);
+        IntegrationMethod integration_method(_integration_order);
         unsigned const n_integration_points = integration_method.getNPoints();
-
-        double T_int_pt = 0.0;
-        std::array<double*, 1> const int_pt_array = { &T_int_pt };
 
         for (std::size_t ip(0); ip < n_integration_points; ip++)
         {
             auto const& sm = _shape_matrices[ip];
 
-            NumLib::shapeFunctionInterpolate(local_x, sm.N, int_pt_array);
-
-            // use T_int_pt here ...
-
             auto const& wp = integration_method.getWeightedPoint(ip);
-            _localK->noalias() += sm.dNdx.transpose() *
-                                  _thermal_conductivity() * sm.dNdx *
+            auto const k = _process_data.thermal_conductivity(_element);
+
+            _localK.noalias() += sm.dNdx.transpose() *
+                                  k * sm.dNdx *
                                   sm.detJ * wp.getWeight();
-            _localM->noalias() += sm.N *
+            _localM.noalias() += sm.N *
                                   density*heat_capacity*sm.N.transpose() *
                                   sm.detJ * wp.getWeight();
         }
@@ -113,18 +84,19 @@ public:
         GlobalMatrix& M, GlobalMatrix& K, GlobalVector& /*b*/)
         const override
     {
-        K.add(indices, *_localK);
-        M.add(indices, *_localM);
+        K.add(indices, _localK);
+        M.add(indices, _localM);
     }
 
 private:
+    MeshLib::Element const& _element;
     std::vector<ShapeMatrices> _shape_matrices;
-    std::function<double(void)> _thermal_conductivity;
+    HeatTransportProcessData const& _process_data;
 
-    std::unique_ptr<NodalMatrixType> _localK;
-    std::unique_ptr<NodalMatrixType> _localM;
+    NodalMatrixType _localK;
+    NodalMatrixType _localM;
 
-    unsigned _integration_order = 2;
+    unsigned const _integration_order;
 };
 
 

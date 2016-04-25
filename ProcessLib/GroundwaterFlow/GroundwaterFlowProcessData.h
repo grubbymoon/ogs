@@ -25,6 +25,7 @@ struct Parameter;
 namespace GroundwaterFlow
 {
 
+// copy that and change names
 struct GroundwaterFlowProcessData
 {
     GroundwaterFlowProcessData(
@@ -32,6 +33,7 @@ struct GroundwaterFlowProcessData
             hydraulic_conductivity_
             )
         : hydraulic_conductivity(hydraulic_conductivity_)
+        // , new_param(new_param_)
     {}
 
     GroundwaterFlowProcessData(GroundwaterFlowProcessData&& other)
