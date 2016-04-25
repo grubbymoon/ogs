@@ -10,9 +10,10 @@
 #include "HeatTransportProcess-fwd.h"
 #include "HeatTransportProcess.h"
 
-namespace ProcessLib
-{
+namespace ProcessLib {
+namespace HeatTransport {
 
 template class HeatTransportProcess<GlobalSetupType>;
 
+}   // namespace HeatTransport
 }   // namespace ProcessLib

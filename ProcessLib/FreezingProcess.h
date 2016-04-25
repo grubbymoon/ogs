@@ -12,48 +12,44 @@
 
 #include <cassert>
 
-#include <boost/optional.hpp>
-
-#include "AssemblerLib/LocalAssemblerBuilder.h"
-#include "AssemblerLib/LocalDataInitializer.h"
+#include "AssemblerLib/VectorMatrixAssembler.h"
+#include "ProcessLib/Process.h"
+#include "ProcessLib/ProcessUtil.h"
 
 #include "FreezingFEM.h"
-#include "Process.h"
+#include "FreezingProcessData.h"
 
 namespace MeshLib
 {
     class Element;
-    class Mesh;
-    template <typename PROP_VAL_TYPE> class PropertyVector;
 }
 
 namespace ProcessLib
+{
+
+namespace Freezing
 {
 
 template<typename GlobalSetup>
 class FreezingProcess final
         : public Process<GlobalSetup>
 {
-    // TODO change "this->" to "Base::"
-    using Base = Process<GlobalSetup>;
 
-public:
+    using Base = Process<GlobalSetup>;
     using GlobalMatrix = typename GlobalSetup::MatrixType;
     using GlobalVector = typename GlobalSetup::VectorType;
 
-
+public:
     FreezingProcess(
         MeshLib::Mesh& mesh,
-        typename Process<GlobalSetup>::NonlinearSolver& nonlinear_solver,
-        std::unique_ptr<typename Process<GlobalSetup>::TimeDiscretization>&& time_discretization,
-        ProcessVariable& variable,
-        Parameter<double, MeshLib::Element const&> const&
-            thermal_conductivity)
-        : Process<GlobalSetup>(mesh, nonlinear_solver, std::move(time_discretization)),
-          _thermal_conductivity(thermal_conductivity)
-    {
-        this->_process_variables.emplace_back(variable);
-
+        typename Base::NonlinearSolver& nonlinear_solver,
+        std::unique_ptr<typename Base::TimeDiscretization>&& time_discretization,
+        std::vector<std::reference_wrapper<ProcessVariable>>&& process_variables,
+        FreezingProcessData&& process_data)
+        : Process<GlobalSetup>(mesh, nonlinear_solver, std::move(time_discretization),
+                      std::move(process_variables))
+        , _process_data(std::move(process_data))
+  {
         if (dynamic_cast<NumLib::ForwardEuler<GlobalVector>*>(
                     &Base::getTimeDiscretization()) != nullptr)
         {
@@ -68,84 +64,53 @@ public:
         }
     }
 
-    template <unsigned GlobalDim>
-    void createLocalAssemblers()
-    {
-        DBUG("Create local assemblers.");
-        // Populate the vector of local assemblers.
-        _local_assemblers.resize(this->_mesh.getNElements());
-        // Shape matrices initializer
-        using LocalDataInitializer = AssemblerLib::LocalDataInitializer<
-            Freezing::LocalAssemblerDataInterface,
-            Freezing::LocalAssemblerData,
-            typename GlobalSetup::MatrixType,
-            typename GlobalSetup::VectorType,
-            GlobalDim,
-            Parameter<double, MeshLib::Element const&> const&
-            /*Parameter...*/>;   // copy everytime when add parameters
-
-        LocalDataInitializer initializer;
-
-        using LocalAssemblerBuilder =
-            AssemblerLib::LocalAssemblerBuilder<
-                MeshLib::Element,
-                LocalDataInitializer>;
-
-        LocalAssemblerBuilder local_asm_builder(
-            initializer, *this->_local_to_global_index_map);
-
-        DBUG("Calling local assembler builder for all mesh elements.");
-        this->_global_setup.transform(
-                local_asm_builder,
-                this->_mesh.getElements(),
-                _local_assemblers,
-                this->_integration_order,
-                _thermal_conductivity);
-    }
-
-    void createLocalAssemblers() override
-    {
-        if (this->_mesh.getDimension()==1)
-            createLocalAssemblers<1>();
-        else if (this->_mesh.getDimension()==2)
-            createLocalAssemblers<2>();
-        else if (this->_mesh.getDimension()==3)
-            createLocalAssemblers<3>();
-        else
-            assert(false);
-    }
-
     //! \name ODESystem interface
     //! @{
 
     bool isLinear() const override
     {
-        return true;
+        return false;
     }
 
     //! @}
 
 private:
-    Parameter<double, MeshLib::Element const&> const& _thermal_conductivity;
+    using LocalAssemblerInterface =
+        ProcessLib::LocalAssemblerInterface<GlobalMatrix, GlobalVector>;
 
-    using LocalAssembler = Freezing::LocalAssemblerDataInterface<
-        typename GlobalSetup::MatrixType, typename GlobalSetup::VectorType>;
+    using GlobalAssembler = AssemblerLib::VectorMatrixAssembler<
+            GlobalMatrix, GlobalVector, LocalAssemblerInterface,
+            NumLib::ODESystemTag::FirstOrderImplicitQuasilinear>;
 
+    void createAssemblers(AssemblerLib::LocalToGlobalIndexMap const& dof_table,
+                          MeshLib::Mesh const& mesh,
+                          unsigned const integration_order) override
+    {
+        DBUG("Create global assembler.");
+        _global_assembler.reset(new GlobalAssembler(dof_table));
+
+        ProcessLib::createLocalAssemblers<GlobalSetup, LocalAssemblerData>(
+                    mesh.getDimension(), mesh.getElements(),
+                    dof_table, integration_order, _local_assemblers,
+                    _process_data);
+    }
 
     void assembleConcreteProcess(const double t, GlobalVector const& x,
                                  GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b) override
     {
-        // TODO It looks like, with little work this entire method can be moved to the Process class.
-
         DBUG("Assemble FreezingProcess.");
 
         // Call global assembler for each local assembly item.
-        this->_global_setup.executeDereferenced(
-                    *this->_global_assembler, _local_assemblers, t, x, M, K, b);
+        GlobalSetup::executeMemberDereferenced(
+            *_global_assembler, &GlobalAssembler::assemble,
+            _local_assemblers, t, x, M, K, b);
     }
 
 
-    std::vector<std::unique_ptr<LocalAssembler>> _local_assemblers;
+    FreezingProcessData _process_data;
+
+    std::unique_ptr<GlobalAssembler> _global_assembler;
+    std::vector<std::unique_ptr<LocalAssemblerInterface>> _local_assemblers;
 };
 
 template <typename GlobalSetup>
@@ -163,26 +128,33 @@ createFreezingProcess(
     DBUG("Create FreezingProcess.");
 
     // Process variable.
-    ProcessVariable& process_variable =
-        findProcessVariable(config, "process_variable", variables);
-    DBUG("Associate Temperature with process variable \'%s\'.",
-         process_variable.getName().c_str());
+    auto process_variables =
+        findProcessVariables(variables, config, {
+            "temperature_variable" /*, "pressure_variable" */});
 
     // Thermal conductivity parameter.
     auto& thermal_conductivity =
-        findParameter<double, MeshLib::Element const&>(
-            config, "thermal_conductivity", parameters);
+            findParameter<double, MeshLib::Element const&>(
+                config, "thermal_conductivity", parameters);
 
-    DBUG("Use \'%s\' as thermal conductivity parameter.",
-         thermal_conductivity.name.c_str());
+        DBUG("Use \'%s\' as thermal conductivity parameter.",
+             thermal_conductivity.name.c_str());
+
+        FreezingProcessData process_data {
+            thermal_conductivity
+        };
 
     return std::unique_ptr<FreezingProcess<GlobalSetup>>{
         new FreezingProcess<GlobalSetup>{
             mesh, nonlinear_solver,std::move(time_discretization),
-            process_variable,
-            thermal_conductivity
-    }};
+            std::move(process_variables),
+            std::move(process_data)
+    }
+
+  };
 }
+
+}   // namesapce Freezing
 }   // namespace ProcessLib
 
 #endif  // PROCESS_LIB_FREEZINGPROCESS_H_

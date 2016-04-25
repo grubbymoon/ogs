@@ -13,6 +13,6 @@
 #include "HeatTransportProcess.h"
 #include "NumericsConfig.h"
 
-extern template class ProcessLib::HeatTransportProcess<GlobalSetupType>;
+extern template class ProcessLib::HeatTransport::HeatTransportProcess<GlobalSetupType>;
 
 #endif  // PROCESS_LIB_HEATTRANSPORTPROCESS_FWD_H_
