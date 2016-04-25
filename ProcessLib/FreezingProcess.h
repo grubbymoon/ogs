@@ -130,7 +130,7 @@ createFreezingProcess(
     // Process variable.
     auto process_variables =
         findProcessVariables(variables, config, {
-            "temperature_variable" /*, "pressure_variable" */});
+            "temperature_variable" , "pressure_variable"});  // configure two Pcs
 
     // Thermal conductivity parameter.
     auto& thermal_conductivity =
