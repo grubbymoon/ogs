@@ -10,9 +10,10 @@
 #include "FreezingProcess-fwd.h"
 #include "FreezingProcess.h"
 
-namespace ProcessLib
-{
+namespace ProcessLib {
+namespace Freezing {
 
 template class FreezingProcess<GlobalSetupType>;
 
+}   // namespace Freezing
 }   // namespace ProcessLib

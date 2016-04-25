@@ -188,7 +188,8 @@ void ProjectData::buildProcesses()
             // several meshes. Then we have to assign the referenced mesh
             // here.
             _processes.emplace_back(
-                ProcessLib::createHeatTransportProcess<GlobalSetupType>(
+                ProcessLib::HeatTransport::
+                createHeatTransportProcess<GlobalSetupType>(
                     *_mesh_vec[0], *nl_slv, std::move(time_disc),
                     _process_variables, _parameters, pc));
         }
@@ -200,7 +201,7 @@ void ProjectData::buildProcesses()
             // several meshes. Then we have to assign the referenced mesh
             // here.
             _processes.emplace_back(
-                ProcessLib::createFreezingProcess<GlobalSetupType>(
+                ProcessLib::Freezing::createFreezingProcess<GlobalSetupType>(
                     *_mesh_vec[0], *nl_slv, std::move(time_disc),
                     _process_variables, _parameters, pc));
         }
