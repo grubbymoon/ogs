@@ -13,6 +13,6 @@
 #include "FreezingProcess.h"
 #include "NumericsConfig.h"
 
-extern template class ProcessLib::FreezingProcess<GlobalSetupType>;
+extern template class ProcessLib::Freezing::FreezingProcess<GlobalSetupType>;
 
 #endif  // PROCESS_LIB_FREEZINGPROCESS_FWD_H_

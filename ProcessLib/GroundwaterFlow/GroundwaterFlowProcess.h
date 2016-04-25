@@ -138,8 +138,19 @@ createGroundwaterFlowProcess(
     DBUG("Use \'%s\' as hydraulic conductivity parameter.",
          hydraulic_conductivity.name.c_str());
 
+    /*
+    // Hydraulic conductivity parameter.
+    auto& new_param =
+        findParameter<double, MeshLib::Element const&>(
+            config, "new_param", parameters);
+
+    DBUG("Use \'%s\' as hydraulic conductivity parameter.",
+         new_param.name.c_str());
+    */
+
     GroundwaterFlowProcessData process_data {
         hydraulic_conductivity
+        // , new_param
     };
 
     return std::unique_ptr<GroundwaterFlowProcess<GlobalSetup>>{
@@ -147,7 +158,8 @@ createGroundwaterFlowProcess(
             mesh, nonlinear_solver,std::move(time_discretization),
             std::move(process_variables),
             std::move(process_data)
-        }
+          }
+
     };
 }
 
