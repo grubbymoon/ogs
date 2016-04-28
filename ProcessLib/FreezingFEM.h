@@ -77,6 +77,8 @@ public:
         const double thermal_conductivity_ice = 2 ;
         const double thermal_conductivity_soil = 3.2 ;
         const double thermal_conductivity_water = 0.6 ;
+        const double specific_storage = 2e-4 ;       // m-1
+        const double hydraulic_conductivity = 8e-7 ; // m/s
         double porosity = 0.5 ;
         double phi_i = 0.0 ;
         double sigmoid_coeff = 5.0 ;
@@ -93,6 +95,16 @@ public:
 
         for (std::size_t ip(0); ip < n_integration_points; ip++)
         {
+            auto const num_nodes = ShapeFunction::NPOINTS;
+            typedef Matrix<double, num_nodes, num_nodes> MatrixNN;
+            MatrixNN _Ktt;
+            MatrixNN _Mtt;
+            MatrixNN _Kpp;
+            MatrixNN _Mpp;
+            MatrixNN _Ktp;
+            MatrixNN _Mtp;
+            MatrixNN _Kpt;
+            MatrixNN _Mpt;
             auto const& sm = _shape_matrices[ip];
             int n = n_integration_points;
             // Order matters: First T, then P!
@@ -114,14 +126,36 @@ thermal_conductivity_soil, thermal_conductivity_water);
             auto const& wp = integration_method.getWeightedPoint(ip);
             _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
+                                  sm.detJ * wp.getWeight() + sm.N*density_water
+                                  *specific_heat_capacity_water*hydraulic_conductivity*
+                                  (sm.dNdx*p_int_pt)*sm.dNdx*sm.detJ*wp.getWeight();
+            _Kpp.noalias() += sm.dNdx.transpose() *
+                                  hydraulic_conductivity * sm.dNdx *
+                                  sm.detJ * wp.getWeight();
+            _Kpt.noalias() += sm.dNdx.transpose() *
+                                  0 * sm.dNdx *
+                                  sm.detJ * wp.getWeight();
+            _Ktp.noalias() += sm.dNdx.transpose() *
+                                  0 * sm.dNdx *
                                   sm.detJ * wp.getWeight();
             _Mtt.noalias() += sm.N *heat_capacity*sm.N.transpose() *
                                   sm.detJ * wp.getWeight();
+            _Mpp.noalias() += sm.N *specific_storage*sm.N.transpose() *
+                                  sm.detJ * wp.getWeight();
+            _Mpt.noalias() += sm.N *0*sm.N.transpose() *
+                                  sm.detJ * wp.getWeight();
+            _Mtp.noalias() += sm.N *0*sm.N.transpose() *
+                                  sm.detJ * wp.getWeight();
 
-            auto const num_nodes = ShapeFunction::NUM_POINTS;
 
             _localK.block<num_nodes,num_nodes>(0,0).noalias() += _Ktt;
             _localM.block<num_nodes,num_nodes>(0,0).noalias() += _Mtt;
+            _localK.block<num_nodes,num_nodes>(num_nodes,num_nodes).noalias() += _Kpp;
+            _localM.block<num_nodes,num_nodes>(num_nodes,num_nodes).noalias() += _Mpp;
+            _localK.block<num_nodes,num_nodes>(num_nodes,0).noalias() += _Ktp;
+            _localM.block<num_nodes,num_nodes>(num_nodes,0).noalias() += _Mtp;
+            _localK.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Kpt;
+            _localM.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Mpt;
         }
     }
 
