@@ -9,6 +9,12 @@ APPEND_SOURCE_FILES(SOURCES GroundwaterFlow)
 add_subdirectory(TES)
 APPEND_SOURCE_FILES(SOURCES TES)
 
+add_subdirectory(HeatTransport)
+APPEND_SOURCE_FILES(SOURCES HeatTransport)
+
+add_subdirectory(Freezing)
+APPEND_SOURCE_FILES(SOURCES Freezing)
+
 APPEND_SOURCE_FILES(SOURCES Utils)
 
 add_library(ProcessLib ${SOURCES})
@@ -23,8 +29,8 @@ target_link_libraries(ProcessLib
 ADD_VTK_DEPENDENCY(ProcessLib)
 
 if(TARGET Eigen)
-    add_dependencies(ProcessLib Eigen)
+	add_dependencies(ProcessLib Eigen)
 endif()
 if(TARGET Boost)
-    add_dependencies(ProcessLib Boost)
+	add_dependencies(ProcessLib Boost)
 endif()
