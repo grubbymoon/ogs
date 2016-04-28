@@ -1,0 +1,19 @@
+/**
+ * \copyright
+ * Copyright (c) 2012-2016, OpenGeoSys Community (http://www.opengeosys.org)
+ *            Distributed under a Modified BSD License.
+ *              See accompanying file LICENSE.txt or
+ *              http://www.opengeosys.org/project/license
+ *
+ */
+
+#include "HeatTransportProcess-fwd.h"
+#include "HeatTransportProcess.h"
+
+namespace ProcessLib {
+namespace HeatTransport {
+
+template class HeatTransportProcess<GlobalSetupType>;
+
+}   // namespace HeatTransport
+}   // namespace ProcessLib

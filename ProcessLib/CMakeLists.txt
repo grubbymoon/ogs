@@ -6,6 +6,12 @@ APPEND_SOURCE_FILES(SOURCES)
 add_subdirectory(GroundwaterFlow)
 APPEND_SOURCE_FILES(SOURCES GroundwaterFlow)
 
+add_subdirectory(HeatTransport)
+APPEND_SOURCE_FILES(SOURCES HeatTransport)
+
+add_subdirectory(Freezing)
+APPEND_SOURCE_FILES(SOURCES Freezing)
+
 add_library(ProcessLib STATIC ${SOURCES})
 
 target_link_libraries(ProcessLib INTERFACE

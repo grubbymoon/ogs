@@ -35,8 +35,8 @@
 #include "UncoupledProcessesTimeLoop.h"
 
 #include "ProcessLib/GroundwaterFlow/GroundwaterFlowProcess-fwd.h"
-#include "ProcessLib/HeatTransportProcess-fwd.h"
-#include "ProcessLib/FreezingProcess-fwd.h"
+#include "ProcessLib/HeatTransport/HeatTransportProcess-fwd.h"
+#include "ProcessLib/Freezing/FreezingProcess-fwd.h"
 
 
 namespace detail
