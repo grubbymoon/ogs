@@ -1,5 +1,6 @@
 #ifndef PROCESS_LIB_FREEZINGMATERIALMODEL_H_
 #define PROCESS_LIB_FREEZINGMATERIALMODEL_H_
+#include <math.h>
 
 namespace ProcessLib
 {
@@ -26,8 +27,8 @@ static double Calcsigmoidderive(double phi_i, double freezing_sigmoid_coeff, dou
 }
 
 static double EquaHeatCapacity(double phi_i, double density_w, double density_s, double density_i,
-double specific_heat_capacity_soil, double specific_heat_capacity_ice, double specific_heat_capacity_water,
-double porosity, double sigmoid_derive, double latent_heat)
+  double specific_heat_capacity_soil, double specific_heat_capacity_ice, double specific_heat_capacity_water,
+  double porosity, double sigmoid_derive, double latent_heat)
 {
     double heat_capacity;
 
@@ -38,7 +39,7 @@ double porosity, double sigmoid_derive, double latent_heat)
 }
 
 static double TotalThermalConductivity(double porosity, double phi_i, double thermal_conductivity_ice,
-double thermal_conductivity_soil, double thermal_conductivity_water)
+   double thermal_conductivity_soil, double thermal_conductivity_water)
 {
    double thermal_conductivity;
 
@@ -48,6 +49,12 @@ double thermal_conductivity_soil, double thermal_conductivity_water)
    return thermal_conductivity;
 }
 
+static double KozenyKarman(double hydraulic_conductiviy, double porosity, double phi_i)
+{
+    double real_hydraulic_conductivity;
+    real_hydraulic_conductivity = hydraulic_conductiviy* pow((porosity-phi_i)/porosity, 3)* pow((1-porosity)/(1+phi_i-porosity), 3);
+    return real_hydraulic_conductivity;
+}
 
 }  // FREEZING
 
