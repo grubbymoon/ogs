@@ -86,6 +86,7 @@ public:
         double sigmoid_derive = 0.0 ;
         double thermal_conductivity = 0.0 ;
         double heat_capacity = 0.0 ;
+        double Real_hydraulic_conductivity = 0.0 ;
 
         IntegrationMethod integration_method(_integration_order);
         unsigned const n_integration_points = integration_method.getNPoints();
@@ -114,6 +115,8 @@ public:
 
             phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
 
+            Real_hydraulic_conductivity = KozenyKarman(hydraulic_conductivity, porosity, phi_i);
+
             sigmoid_derive = Calcsigmoidderive(phi_i, sigmoid_coeff, porosity);
 
             thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
@@ -123,14 +126,17 @@ thermal_conductivity_soil, thermal_conductivity_water);
  specific_heat_capacity_soil, specific_heat_capacity_ice,
  specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
 
+            auto const p_nodal_values =
+                    Eigen::Map<const Eigen::VectorXd>(&local_x[num_nodes], num_nodes);
+
             auto const& wp = integration_method.getWeightedPoint(ip);
             _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight() + sm.N*density_water
-                                  *specific_heat_capacity_water*hydraulic_conductivity*
-                                  (sm.dNdx*p_int_pt)*sm.dNdx*sm.detJ*wp.getWeight();
+                                  *specific_heat_capacity_water*Real_hydraulic_conductivity*
+                                  (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight(); // errors (p_int_pt)
             _Kpp.noalias() += sm.dNdx.transpose() *
-                                  hydraulic_conductivity * sm.dNdx *
+                                  Real_hydraulic_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight();
             _Kpt.noalias() += sm.dNdx.transpose() *
                                   0 * sm.dNdx *
