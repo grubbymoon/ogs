@@ -134,7 +134,7 @@ thermal_conductivity_soil, thermal_conductivity_water);
                                   thermal_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight() + sm.N*density_water
                                   *specific_heat_capacity_water*Real_hydraulic_conductivity*
-                                  (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight(); // errors (p_int_pt)
+                                  (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight();
             _Kpp.noalias() += sm.dNdx.transpose() *
                                   Real_hydraulic_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight();

@@ -95,6 +95,7 @@ public:
 		x.copyValues(x_copy);
 
 		std::size_t const n_nodes = _mesh.getNNodes();
+        std::size_t global_component_id = 0;
 		for (ProcessVariable& pv : _process_variables)
 		{
 			auto& output_data = pv.getOrCreateMeshProperty();
@@ -106,17 +107,19 @@ public:
 				                          MeshLib::MeshItemType::Node, node_id);
 				// TODO extend component ids to multiple process variables.
 				for (int component_id = 0; component_id < n_components;
-				     ++component_id)
+                     ++component_id)
 				{
 					auto const index =
 					    _local_to_global_index_map->getLocalIndex(
-					        l, component_id, x.getRangeBegin(),
+                            l, global_component_id + component_id, x.getRangeBegin(),
 					        x.getRangeEnd());
 
 					output_data[node_id * n_components + component_id] =
 					    x_copy[index];
 				}
 			}
+
+            global_component_id += n_components;
 		}
 
 		// Write output file
@@ -140,11 +143,19 @@ public:
 		createAssemblers(*_local_to_global_index_map, _mesh, _integration_order);
 
 		DBUG("Initialize boundary conditions.");
-		for (ProcessVariable& pv : _process_variables)
+/*		for (ProcessVariable& pv : _process_variables)
 		{
 			createDirichletBcs(pv, 0);  // 0 is the component id
 			createNeumannBcs(pv, 0);    // 0 is the component id
-		}
+        }  */
+        for (std::size_t global_component_id = 0;
+             global_component_id < _process_variables.size();
+             ++global_component_id)
+        {
+            auto& pv = _process_variables[global_component_id];
+            createDirichletBcs(pv,global_component_id);
+            createNeumannBcs(pv, global_component_id);
+        }
 
 		for (auto& bc : _neumann_bcs)
 			bc->initialize(_mesh.getDimension());
