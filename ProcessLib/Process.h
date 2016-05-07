@@ -106,14 +106,28 @@ public:
 			bc->initialize(_mesh.getDimension());
 	}
 
-	void setInitialConditions(GlobalVector& x)
+/*	void setInitialConditions(GlobalVector& x)
 	{
 		DBUG("Set initial conditions.");
 		for (ProcessVariable& pv : _process_variables)
 		{
 			setInitialConditions(pv, 0, x);  // 0 is the component id
 		}
-	}
+    }  */
+
+    void setInitialConditions(GlobalVector& x)
+    {
+        DBUG("Set initial conditions.");
+
+        // TODO That will only work with single component process variables!
+        for (std::size_t global_component_id=0;
+             global_component_id<_process_variables.size();
+             ++global_component_id)
+        {
+            auto& pv = _process_variables[global_component_id];
+            setInitialConditions(pv, global_component_id, x);
+        }
+    }
 
 	MathLib::MatrixSpecifications getMatrixSpecifications() const override final
 	{

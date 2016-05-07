@@ -107,7 +107,7 @@ public:
             MatrixNN _Kpt;
             MatrixNN _Mpt;
             auto const& sm = _shape_matrices[ip];
-            int n = n_integration_points;
+            // int n = n_integration_points;
             // Order matters: First T, then P!
             NumLib::shapeFunctionInterpolate(local_x, sm.N, T_int_pt, p_int_pt);
 
@@ -126,12 +126,15 @@ thermal_conductivity_soil, thermal_conductivity_water);
  specific_heat_capacity_soil, specific_heat_capacity_ice,
  specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
 
+            auto const p_nodal_values =
+                    Eigen::Map<const Eigen::VectorXd>(&local_x[num_nodes], num_nodes);
+
             auto const& wp = integration_method.getWeightedPoint(ip);
             _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight() + sm.N*density_water
                                   *specific_heat_capacity_water*Real_hydraulic_conductivity*
-                                  (sm.dNdx*p_int_pt)*sm.dNdx*sm.detJ*wp.getWeight();
+                                  (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight(); // errors (p_int_pt)
             _Kpp.noalias() += sm.dNdx.transpose() *
                                   Real_hydraulic_conductivity * sm.dNdx *
                                   sm.detJ * wp.getWeight();
