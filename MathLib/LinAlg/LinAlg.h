@@ -120,6 +120,7 @@ void matMultAdd(Matrix const& A, Vector const& v1, Vector const& v2, Vector& v3)
 }} // namespaces
 
 
+
 // Global PETScMatrix/PETScVector //////////////////////////////////////////
 #ifdef USE_PETSC
 
