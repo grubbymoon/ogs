@@ -8,6 +8,8 @@ tags
 *.iml
 .idea
 
+CMakeLists.txt.user
+
 # Conan package manager
 conanbuildinfo.cmake
 conaninfo.txt
