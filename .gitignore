@@ -11,6 +11,8 @@ tags
 .idea/dictionaries
 .idea/modules.xml
 
+CMakeLists.txt.user
+
 # Conan package manager
 conanbuildinfo.cmake
 conaninfo.txt
