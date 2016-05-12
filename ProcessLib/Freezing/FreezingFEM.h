@@ -115,8 +115,8 @@ public:
 
             phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
 
-            Real_hydraulic_conductivity = KozenyKarman(hydraulic_conductivity, porosity, phi_i);
-
+          Real_hydraulic_conductivity = KozenyKarman(hydraulic_conductivity, porosity, phi_i);
+          //    Real_hydraulic_conductivity = hydraulic_conductivity ;
             sigmoid_derive = Calcsigmoidderive(phi_i, sigmoid_coeff, porosity);
 
             thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
