@@ -1,0 +1,38 @@
+include(${PROJECT_SOURCE_DIR}/scripts/cmake/OGSEnabledElements.cmake)
+
+# Source files
+APPEND_SOURCE_FILES(SOURCES)
+
+add_subdirectory(GroundwaterFlow)
+APPEND_SOURCE_FILES(SOURCES GroundwaterFlow)
+
+<<<<<<< 46a912cbaa979b2be660ba9577e1756bef32605c
+add_subdirectory(TES)
+APPEND_SOURCE_FILES(SOURCES TES)
+
+APPEND_SOURCE_FILES(SOURCES Utils)
+=======
+add_subdirectory(HeatTransport)
+APPEND_SOURCE_FILES(SOURCES HeatTransport)
+
+add_subdirectory(Freezing)
+APPEND_SOURCE_FILES(SOURCES Freezing)
+>>>>>>> make different directories for the new processes
+
+add_library(ProcessLib ${SOURCES})
+
+target_link_libraries(ProcessLib
+    MaterialsLib
+    MeshGeoToolsLib
+    NumLib # for shape matrices
+    ${VTK_LIBRARIES}
+)
+
+ADD_VTK_DEPENDENCY(ProcessLib)
+
+if(TARGET Eigen)
+    add_dependencies(ProcessLib Eigen)
+endif()
+if(TARGET Boost)
+    add_dependencies(ProcessLib Boost)
+endif()
