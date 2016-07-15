@@ -15,8 +15,9 @@
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
 #include "NumLib/Fem/ShapeMatrixPolicy.h"
 #include "ProcessLib/LocalAssemblerInterface.h"
+#include "ProcessLib/LocalAssemblerTraits.h"
 #include "ProcessLib/Parameter.h"
-#include "ProcessLib/ProcessUtil.h"
+#include "ProcessLib/Utils/InitShapeMatrices.h"
 #include "HeatTransportProcessData.h"
 
 namespace ProcessLib
@@ -25,17 +26,33 @@ namespace ProcessLib
 namespace HeatTransport
 {
 
+enum class IntegrationPointValue {
+    HeatFluxX,
+    HeatFluxY,
+    HeatFluxZ
+};
+
+const unsigned NUM_NODAL_DOF = 1;
+
+class HeatTransportLocalAssemblerInterface
+        : public ProcessLib::LocalAssemblerInterface
+        , public NumLib::Extrapolatable<IntegrationPointValue>
+{};
+
 template <typename ShapeFunction,
          typename IntegrationMethod,
-         typename GlobalMatrix,
-         typename GlobalVector,
          unsigned GlobalDim>
-class LocalAssemblerData : public ProcessLib::LocalAssemblerInterface<GlobalMatrix, GlobalVector>
+class LocalAssemblerData
+        : public HeatTransportLocalAssemblerInterface
 {
     using ShapeMatricesType = ShapeMatrixPolicyType<ShapeFunction, GlobalDim>;
-    using NodalMatrixType = typename ShapeMatricesType::NodalMatrixType;
-    using NodalVectorType = typename ShapeMatricesType::NodalVectorType;
     using ShapeMatrices = typename ShapeMatricesType::ShapeMatrices;
+
+    using LocalAssemblerTraits = ProcessLib::LocalAssemblerTraits<
+        ShapeMatricesType, ShapeFunction::NPOINTS, NUM_NODAL_DOF, GlobalDim>;
+
+    using NodalMatrixType = typename LocalAssemblerTraits::LocalMatrix;
+    using NodalVectorType = typename LocalAssemblerTraits::LocalVector;
 
 public:
     /// The thermal_conductivity factor is directly integrated into the local
@@ -51,23 +68,32 @@ public:
         , _process_data(process_data)
         , _localK(local_matrix_size, local_matrix_size) // TODO narrowing conversion
         , _localM(local_matrix_size, local_matrix_size)
+        , _localRhs(local_matrix_size)
         , _integration_order(integration_order)
-    {}
+    {
+        // This assertion is valid only if all nodal d.o.f. use the same shape matrices.
+       assert(local_matrix_size == ShapeFunction::NPOINTS * NUM_NODAL_DOF);
+    }
 
-    void assemble(double const /*t*/, std::vector<double> const& /*local_x*/) override
+
+    void assembleConcrete(
+        double const /*t*/, std::vector<double> const& local_x,
+        NumLib::LocalToGlobalIndexMap::RowColumnIndices const& indices,
+        GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b) override
     {
         _localK.setZero();
         _localM.setZero();
+        _localRhs.setZero();
+
         const double density = 1000 ;
         const double heat_capacity = 3000 ;
 
         IntegrationMethod integration_method(_integration_order);
-        unsigned const n_integration_points = integration_method.getNPoints();
+        unsigned const n_integration_points = integration_method.getNumberOfPoints();
 
         for (std::size_t ip(0); ip < n_integration_points; ip++)
         {
             auto const& sm = _shape_matrices[ip];
-
             auto const& wp = integration_method.getWeightedPoint(ip);
             auto const k = _process_data.thermal_conductivity(_element);
 
@@ -77,16 +103,48 @@ public:
             _localM.noalias() += sm.N *
                                   density*heat_capacity*sm.N.transpose() *
                                   sm.detJ * wp.getWeight();
-        }
-    }
+            // heat flux only computed for output.
+            auto const heat_flux = (k * sm.dNdx *
+                Eigen::Map<const NodalVectorType>(local_x.data(), ShapeFunction::NPOINTS)
+                ).eval();
 
-    void addToGlobal(AssemblerLib::LocalToGlobalIndexMap::RowColumnIndices const& indices,
-        GlobalMatrix& M, GlobalMatrix& K, GlobalVector& /*b*/)
-        const override
-    {
+            for (unsigned d=0; d<GlobalDim; ++d) {
+                _heat_fluxes[d][ip] = heat_flux[d];
+           }
+       }
+
         K.add(indices, _localK);
         M.add(indices, _localM);
+        b.add(indices.rows, _localRhs);
     }
+
+       Eigen::Map<const Eigen::RowVectorXd>
+       getShapeMatrix(const unsigned integration_point) const override
+       {
+          auto const& N = _shape_matrices[integration_point].N;
+
+          // assumes N is stored contiguously in memory
+          return Eigen::Map<const Eigen::RowVectorXd>(N.data(), N.size());
+       }
+
+      std::vector<double> const&
+      getIntegrationPointValues(IntegrationPointValue const property,
+                              std::vector<double>& /*cache*/) const override
+      {
+        switch (property)
+        {
+        case IntegrationPointValue::HeatFluxX:
+            return _heat_fluxes[0];
+        case IntegrationPointValue::HeatFluxY:
+            assert(GlobalDim > 1);
+            return _heat_fluxes[1];
+        case IntegrationPointValue::HeatFluxZ:
+            assert(GlobalDim > 2);
+            return _heat_fluxes[2];
+        }
+
+        OGS_FATAL("");
+}
 
 private:
     MeshLib::Element const& _element;
@@ -95,8 +153,12 @@ private:
 
     NodalMatrixType _localK;
     NodalMatrixType _localM;
+    NodalVectorType _localRhs;
 
     unsigned const _integration_order;
+    std::vector<std::vector<double>> _heat_fluxes
+            = std::vector<std::vector<double>>(
+    GlobalDim, std::vector<double>(ShapeFunction::NPOINTS));
 };
 
 
