@@ -25,7 +25,7 @@ struct Parameter;
 namespace Freezing
 {
 
-// copy that and change names
+// copy that and change names first still only thermal conductivity, later on more parameters will be added.
 struct FreezingProcessData
 {
     FreezingProcessData(

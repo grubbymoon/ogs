@@ -54,4 +54,4 @@ struct HeatTransportProcessData
 } // namespace HeatTransport
 } // namespace ProcessLib
 
-#endif // PROCESSLIB_GROUNDWATERFLOW_GROUNDWATERFLOWPROCESSDATA_H
+#endif // PROCESSLIB_HEATTRANSPORT_HEATTRANSPORTPROCESSDATA_H
