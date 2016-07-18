@@ -25,7 +25,7 @@ std::unique_ptr<Process> createHeatTransportProcess(
     BaseLib::ConfigTree const& config)
 {
     //! \ogs_file_param{process__type}
-    config.checkConfigParameter("type", "GROUNDWATER_FLOW");
+    config.checkConfigParameter("type", "HEAT_TRANSPORT");
 
     DBUG("Create HeatTransportProcess.");
 

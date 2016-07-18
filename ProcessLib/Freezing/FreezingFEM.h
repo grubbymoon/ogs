@@ -46,10 +46,9 @@ class FreezingLocalAssemblerInterface
 
 template <typename ShapeFunction,
          typename IntegrationMethod,
-         typename GlobalMatrix,
-         typename GlobalVector,
          unsigned GlobalDim>
-class LocalAssemblerData : public ProcessLib::LocalAssemblerInterface
+class LocalAssemblerData
+        : public FreezingLocalAssemblerInterface
 {
     using ShapeMatricesType = ShapeMatrixPolicyType<ShapeFunction, GlobalDim>;
     using ShapeMatrices = typename ShapeMatricesType::ShapeMatrices;
@@ -83,7 +82,7 @@ public:
    }
 
     /* commit t? */
-    void assemble(double const /*t*/, std::vector<double> const& local_x,
+    void assembleConcrete(double const /*t*/, std::vector<double> const& local_x,
                   NumLib::LocalToGlobalIndexMap::RowColumnIndices const& indices,
                   GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b) override
     {
@@ -170,13 +169,13 @@ thermal_conductivity_soil, thermal_conductivity_water);
             _Ktp.noalias() += sm.dNdx.transpose() *
                                   0 * sm.dNdx *
                                   sm.detJ * wp.getWeight();
-            _Mtt.noalias() += sm.N *heat_capacity*sm.N.transpose() *
+            _Mtt.noalias() += sm.N.transpose() *heat_capacity*sm.N *
                                   sm.detJ * wp.getWeight();
-            _Mpp.noalias() += sm.N *specific_storage*sm.N.transpose() *
+            _Mpp.noalias() += sm.N.transpose() *specific_storage*sm.N *
                                   sm.detJ * wp.getWeight();
-            _Mpt.noalias() += sm.N *0*sm.N.transpose() *
+            _Mpt.noalias() += sm.N.transpose() *0*sm.N *
                                   sm.detJ * wp.getWeight();
-            _Mtp.noalias() += sm.N *0*sm.N.transpose() *
+            _Mtp.noalias() += sm.N.transpose() *0*sm.N *
                                   sm.detJ * wp.getWeight();
 
 
