@@ -100,8 +100,8 @@ public:
             _localK.noalias() += sm.dNdx.transpose() *
                                   k * sm.dNdx *
                                   sm.detJ * wp.getWeight();
-            _localM.noalias() += sm.N *
-                                  density*heat_capacity*sm.N.transpose() *
+            _localM.noalias() += sm.N.transpose() *
+                                  density*heat_capacity*sm.N *
                                   sm.detJ * wp.getWeight();
             // heat flux only computed for output.
             auto const heat_flux = (k * sm.dNdx *
