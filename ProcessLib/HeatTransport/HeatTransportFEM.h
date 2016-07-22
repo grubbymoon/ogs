@@ -85,8 +85,8 @@ public:
         _localM.setZero();
         _localRhs.setZero();
 
-        const double density = 1000 ;
-        const double heat_capacity = 3000 ;
+        //const double density = 2500 ;
+        //const double heat_capacity = 1000 ;
 
         IntegrationMethod integration_method(_integration_order);
         unsigned const n_integration_points = integration_method.getNumberOfPoints();
@@ -96,6 +96,8 @@ public:
             auto const& sm = _shape_matrices[ip];
             auto const& wp = integration_method.getWeightedPoint(ip);
             auto const k = _process_data.thermal_conductivity(_element);
+            auto const heat_capacity = _process_data.heat_capacity(_element);
+            auto const density = _process_data.density(_element);
 
             _localK.noalias() += sm.dNdx.transpose() *
                                   k * sm.dNdx *
