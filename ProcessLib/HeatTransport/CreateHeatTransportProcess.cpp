@@ -32,21 +32,44 @@ std::unique_ptr<Process> createHeatTransportProcess(
     // Process variable.
     auto process_variables = findProcessVariables(
         variables, config,
-        {//! \ogs_file_param_special{process__GROUNDWATER_FLOW__process_variables__process_variable}
+        {//! \ogs_file_param_special{process__HEAT_TRANSPORT__process_variables__process_variable}
          "process_variable"});
 
     // thermal conductivity parameter.
     auto& thermal_conductivity = findParameter<double,
                                                  MeshLib::Element const&>(
         config,
-        //! \ogs_file_param_special{process__GROUNDWATER_FLOW__thermal_conductivity}
+        //! \ogs_file_param_special{process__HEAT_TRANSPORT__thermal_conductivity}
         "thermal_conductivity",
         parameters);
 
     DBUG("Use \'%s\' as thermal conductivity parameter.",
          thermal_conductivity.name.c_str());
 
-    HeatTransportProcessData process_data{thermal_conductivity};
+    // heat capacity parameter.
+    auto& heat_capacity = findParameter<double,
+                                                 MeshLib::Element const&>(
+        config,
+        //! \ogs_file_param_special{process__HEAT_TRANSPORT__heat_capacity}
+        "heat_capacity",
+        parameters);
+
+    DBUG("Use \'%s\' as heat capacity parameter.",
+         heat_capacity.name.c_str());
+
+    // density parameter.
+    auto& density = findParameter<double,
+                                                 MeshLib::Element const&>(
+        config,
+        //! \ogs_file_param_special{process__HEAT_TRANSPORT__density}
+        "density",
+        parameters);
+
+    DBUG("Use \'%s\' as density parameter.",
+         density.name.c_str());
+
+    HeatTransportProcessData process_data{thermal_conductivity, heat_capacity, density};
+
 
     SecondaryVariableCollection secondary_variables{
         //! \ogs_file_param{process__secondary_variables}
