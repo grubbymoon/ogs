@@ -30,13 +30,19 @@ struct HeatTransportProcessData
 {
     HeatTransportProcessData(
             ProcessLib::Parameter<double, MeshLib::Element const&> const&
-            thermal_conductivity_
+            thermal_conductivity_,
+            ProcessLib::Parameter<double, MeshLib::Element const&> const&
+            heat_capacity_,
+            ProcessLib::Parameter<double, MeshLib::Element const&> const&
+            density_
             )
-        : thermal_conductivity(thermal_conductivity_)
+        : thermal_conductivity(thermal_conductivity_), heat_capacity(heat_capacity_), density(density_)
     {}
 
     HeatTransportProcessData(HeatTransportProcessData&& other)
-        : thermal_conductivity(other.thermal_conductivity)
+        : thermal_conductivity(other.thermal_conductivity),
+          heat_capacity(other.heat_capacity),
+          density(other.density)
     {}
 
     //! Copies are forbidden.
@@ -49,6 +55,8 @@ struct HeatTransportProcessData
     void operator=(HeatTransportProcessData&&) = delete;
 
     Parameter<double, MeshLib::Element const&> const& thermal_conductivity;
+    Parameter<double, MeshLib::Element const&> const& heat_capacity;
+    Parameter<double, MeshLib::Element const&> const& density;
 };
 
 } // namespace HeatTransport
