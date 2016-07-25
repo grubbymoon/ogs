@@ -42,13 +42,6 @@ public:
     //! @}
 
 private:
-    using ExtrapolatorInterface =
-        NumLib::Extrapolator<IntegrationPointValue,
-                             FreezingLocalAssemblerInterface>;
-    using ExtrapolatorImplementation =
-        NumLib::LocalLinearLeastSquaresExtrapolator<
-            IntegrationPointValue, FreezingLocalAssemblerInterface>;
-
     void initializeConcreteProcess(
         NumLib::LocalToGlobalIndexMap const& dof_table,
         MeshLib::Mesh const& mesh,
@@ -61,9 +54,7 @@ private:
     FreezingProcessData _process_data;
 
     std::vector<std::unique_ptr<FreezingLocalAssemblerInterface>>
-        _local_assemblers;
-
-    std::unique_ptr<ExtrapolatorInterface> _extrapolator;
+_local_assemblers;
 };
 
 }   // namespace Freezing

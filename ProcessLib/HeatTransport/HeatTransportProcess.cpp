@@ -44,29 +44,26 @@ void HeatTransportProcess::initializeConcreteProcess(
         mesh.getDimension(), mesh.getElements(), dof_table, integration_order,
         _local_assemblers, _process_data);
 
-    // TODO Later on the DOF table can change during the simulation!
-    _extrapolator.reset(new ExtrapolatorImplementation(
-        Base::getMatrixSpecifications(), *Base::_local_to_global_index_map));
+    _secondary_variables.addSecondaryVariable(
+           "heat_flux_x", 1,
+           makeExtrapolator(
+               getExtrapolator(), _local_assemblers,
+               &HeatTransportLocalAssemblerInterface::getIntPtHeatFluxX));
 
-    Base::_secondary_variables.addSecondaryVariable(
-        "heat_flux_x", 1,
-        makeExtrapolator(IntegrationPointValue::HeatFluxX, *_extrapolator,
-                         _local_assemblers));
-
-    if (mesh.getDimension() > 1)
-    {
-        Base::_secondary_variables.addSecondaryVariable(
-            "heat_flux_y", 1,
-            makeExtrapolator(IntegrationPointValue::HeatFluxY,
-                             *_extrapolator, _local_assemblers));
-    }
-    if (mesh.getDimension() > 2)
-    {
-        Base::_secondary_variables.addSecondaryVariable(
-            "heat_flux_z", 1,
-            makeExtrapolator(IntegrationPointValue::HeatFluxZ,
-                             *_extrapolator, _local_assemblers));
-    }
+       if (mesh.getDimension() > 1) {
+           _secondary_variables.addSecondaryVariable(
+               "heat_flux_y", 1,
+               makeExtrapolator(getExtrapolator(), _local_assemblers,
+                                &HeatTransportLocalAssemblerInterface::
+                                    getIntPtHeatFluxY));
+       }
+       if (mesh.getDimension() > 2) {
+           _secondary_variables.addSecondaryVariable(
+               "heat_flux_z", 1,
+               makeExtrapolator(getExtrapolator(), _local_assemblers,
+                                &HeatTransportLocalAssemblerInterface::
+                                    getIntPtHeatFluxZ));
+   }
 }
 
 void HeatTransportProcess::assembleConcreteProcess(const double t,
