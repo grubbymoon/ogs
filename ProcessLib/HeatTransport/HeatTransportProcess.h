@@ -43,13 +43,6 @@ public:
     //! @}
 
 private:
-    using ExtrapolatorInterface =
-        NumLib::Extrapolator<IntegrationPointValue,
-                             HeatTransportLocalAssemblerInterface>;
-    using ExtrapolatorImplementation =
-        NumLib::LocalLinearLeastSquaresExtrapolator<
-            IntegrationPointValue, HeatTransportLocalAssemblerInterface>;
-
     void initializeConcreteProcess(
         NumLib::LocalToGlobalIndexMap const& dof_table,
         MeshLib::Mesh const& mesh,
@@ -62,9 +55,7 @@ private:
     HeatTransportProcessData _process_data;
 
     std::vector<std::unique_ptr<HeatTransportLocalAssemblerInterface>>
-        _local_assemblers;
-
-    std::unique_ptr<ExtrapolatorInterface> _extrapolator;
+_local_assemblers;
 };
 
 }   // namespace HeatTransport

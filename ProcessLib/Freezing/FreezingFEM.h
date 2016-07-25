@@ -13,6 +13,7 @@
 #include <Eigen/Dense>
 #include <vector>
 
+#include "NumLib/Extrapolation/ExtrapolatableElement.h"
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
 #include "NumLib/Fem/ShapeMatrixPolicy.h"
 #include "ProcessLib/LocalAssemblerInterface.h"
@@ -30,18 +31,22 @@ namespace ProcessLib
 namespace Freezing
 {
 
-enum class IntegrationPointValue {
-    HeatFluxX,
-    HeatFluxY,
-    HeatFluxZ
-};
-
 const unsigned NUM_NODAL_DOF = 2;
 
 class FreezingLocalAssemblerInterface
         : public ProcessLib::LocalAssemblerInterface
-        , public NumLib::Extrapolatable<IntegrationPointValue>
-{};
+        , public NumLib::ExtrapolatableElement
+{
+public:
+    virtual std::vector<double> const& getIntPtHeatFluxX(
+        std::vector<double>& /*cache*/) const = 0;
+
+    virtual std::vector<double> const& getIntPtHeatFluxY(
+        std::vector<double>& /*cache*/) const = 0;
+
+    virtual std::vector<double> const& getIntPtHeatFluxZ(
+std::vector<double>& /*cache*/) const = 0;
+};
 
 
 template <typename ShapeFunction,
@@ -213,23 +218,25 @@ thermal_conductivity_soil, thermal_conductivity_water);
     }
 
    std::vector<double> const&
-   getIntegrationPointValues(IntegrationPointValue const property,
-                           std::vector<double>& /*cache*/) const override
+   getIntPtHeatFluxX(std::vector<double>& /*cache*/) const override
    {
-     switch (property)
-     {
-     case IntegrationPointValue::HeatFluxX:
-         return _heat_fluxes[0];
-     case IntegrationPointValue::HeatFluxY:
-         assert(GlobalDim > 1);
-         return _heat_fluxes[1];
-     case IntegrationPointValue::HeatFluxZ:
-         assert(GlobalDim > 2);
-         return _heat_fluxes[2];
-     }
+       assert(_heat_fluxes.size() > 0);
+       return _heat_fluxes[0];
+   }
 
-     OGS_FATAL("");
-  }
+   std::vector<double> const&
+   getIntPtHeatFluxY(std::vector<double>& /*cache*/) const override
+   {
+       assert(_heat_fluxes.size() > 1);
+       return _heat_fluxes[1];
+   }
+
+   std::vector<double> const&
+   getIntPtHeatFluxZ(std::vector<double>& /*cache*/) const override
+   {
+       assert(_heat_fluxes.size() > 2);
+       return _heat_fluxes[2];
+}
 
 private:
     MeshLib::Element const& _element;
