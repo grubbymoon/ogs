@@ -10,6 +10,7 @@
 #ifndef PROCESS_LIB_FREEZINGPROCESS_FEM_H_
 #define PROCESS_LIB_FREEZINGPROCESS_FEM_H_
 
+#include <iostream>
 #include <Eigen/Dense>
 #include <vector>
 
@@ -98,15 +99,15 @@ public:
         const double density_water = 1000.0 ;
         const double density_ice = 1000.0 ; // for the mass balance
         const double density_soil = 2000.0 ;
-        const double specific_heat_capacity_soil = 1000.0 ;
+        const double specific_heat_capacity_soil = 250.0 ;
         const double specific_heat_capacity_ice = 2000.0 ;
-        const double specific_heat_capacity_water = 4200.0 ;
-        const double thermal_conductivity_ice = 2 ;
-        const double thermal_conductivity_soil = 3.2 ;
-        const double thermal_conductivity_water = 0.6 ;
-        const double specific_storage = 2e-4 ;       // m-1
-        const double hydraulic_conductivity = 8e-7 ; // m/s
-        double porosity = 0.5 ;
+        const double specific_heat_capacity_water = 1100.0 ;
+        const double thermal_conductivity_ice = 2.0 ;
+        const double thermal_conductivity_soil = 5.0 ;
+        const double thermal_conductivity_water = 1.0 ;
+        const double specific_storage = 0.0 ;       // m-1 if 0 then no constant velocity
+        const double hydraulic_conductivity = 10e-11 ; // m/s
+        double porosity = 0.1 ;
         double phi_i = 0.0 ;
         double sigmoid_coeff = 5.0 ;
         double latent_heat = 334000 ;
@@ -149,24 +150,32 @@ public:
           //    Real_hydraulic_conductivity = hydraulic_conductivity ;
             sigmoid_derive = Calcsigmoidderive(phi_i, sigmoid_coeff, porosity);
 
-            thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
-thermal_conductivity_soil, thermal_conductivity_water);
+          /*  thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
+thermal_conductivity_soil, thermal_conductivity_water); */
+            thermal_conductivity = thermal_conductivity_soil*(1 - porosity)
+                    + thermal_conductivity_water*porosity; // mixed thermal conductivity
 
-            heat_capacity = EquaHeatCapacity(phi_i, density_water, density_soil, density_ice,
+           /* heat_capacity = EquaHeatCapacity(phi_i, density_water, density_soil, density_ice,
  specific_heat_capacity_soil, specific_heat_capacity_ice,
- specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
-
+ specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat); */
+            heat_capacity = density_soil*specific_heat_capacity_soil*(1 - porosity)
+                    + density_water*specific_heat_capacity_water*porosity;  // mixed heat capacity
+            auto const detJ_w_NT = (sm.detJ * wp.getWeight() * sm.N.transpose()).eval();
             auto const p_nodal_values =
                     Eigen::Map<const Eigen::VectorXd>(&local_x[num_nodes], num_nodes);
-
-
+            auto const velocity =  (-hydraulic_conductivity*
+                    sm.dNdx*p_nodal_values).eval();
+            std::cout << velocity << std::endl;
+            auto const detJ_w_NT_vT_dNdx =
+                (detJ_w_NT * velocity.transpose() * sm.dNdx).eval();
+            // matrix assembly
             _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
-                                  sm.detJ * wp.getWeight() + sm.N*density_water
-                                  *specific_heat_capacity_water*Real_hydraulic_conductivity*
-                                  (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight();
+                                  sm.detJ * wp.getWeight() + detJ_w_NT_vT_dNdx*density_water*specific_heat_capacity_water;
+ /*sm.N*density_water*specific_heat_capacity_water*Real_hydraulic_conductivity*
+            (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight(); */
             _Kpp.noalias() += sm.dNdx.transpose() *
-                                  Real_hydraulic_conductivity * sm.dNdx *
+                                 /* Real_hydraulic_conductivity */ hydraulic_conductivity* sm.dNdx *
                                   sm.detJ * wp.getWeight();
             _Kpt.noalias() += sm.dNdx.transpose() *
                                   0 * sm.dNdx *
@@ -193,7 +202,7 @@ thermal_conductivity_soil, thermal_conductivity_water);
             _localK.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Kpt;
             _localM.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Mpt;
             // heat flux only computed for output.
-            auto const heat_flux = (thermal_conductivity * sm.dNdx *
+            auto const heat_flux = (-thermal_conductivity * sm.dNdx *
                 Eigen::Map<const NodalVectorType>(&local_x[0], num_nodes)
                 ).eval();
 
