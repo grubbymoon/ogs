@@ -105,8 +105,8 @@ public:
         const double thermal_conductivity_ice = 2.0 ;
         const double thermal_conductivity_soil = 5.0 ;
         const double thermal_conductivity_water = 1.0 ;
-        const double specific_storage = 0.0 ;       // m-1 if 0 then no constant velocity
-        const double hydraulic_conductivity = 10e-11 ; // m/s
+        const double specific_storage = 2.5e-10 ;       // m-1 if 0 then constant velocity
+        const double hydraulic_conductivity = 5.787e-12 ; // m/s permeability/viscosity
         double porosity = 0.1 ;
         double phi_i = 0.0 ;
         double sigmoid_coeff = 5.0 ;
