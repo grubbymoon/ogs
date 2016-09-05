@@ -97,6 +97,8 @@ public:
         _localRhs.setZero();
 
         const double density_water = 1000.0 ;
+        const double temperature0 = 273.15 ;
+        const double beta = 2.14e-4 ;  // thermal expansion coefficient
         const double density_ice = 1000.0 ; // for the mass balance
         const double density_soil = 2000.0 ;
         const double specific_heat_capacity_soil = 250.0 ;
@@ -105,8 +107,9 @@ public:
         const double thermal_conductivity_ice = 2.0 ;
         const double thermal_conductivity_soil = 5.0 ;
         const double thermal_conductivity_water = 1.0 ;
-        const double specific_storage = 2.5e-10 ;       // m-1 if 0 then constant velocity
+        const double specific_storage = 0 ;       // m-1 if 0 then constant velocity
         const double hydraulic_conductivity = 5.787e-12 ; // m/s permeability/viscosity
+        const double g = 9.81 ;
         double porosity = 0.1 ;
         double phi_i = 0.0 ;
         double sigmoid_coeff = 5.0 ;
@@ -115,6 +118,9 @@ public:
         double thermal_conductivity = 0.0 ;
         double heat_capacity = 0.0 ;
         double Real_hydraulic_conductivity = 0.0 ;
+        //_gravity_v(element.getDimension()) = 0.;
+        //_gravity_v[(element.getDimension() - 1)] = 1.;
+
 
         IntegrationMethod integration_method(_integration_order);
         unsigned const n_integration_points = integration_method.getNumberOfPoints();
@@ -137,12 +143,17 @@ public:
             MatrixNN _Mtp;
             MatrixNN _Kpt;
             MatrixNN _Mpt;
+            typedef Matrix<double, num_nodes, 1> VecterNN;
+            VecterNN _Bpp;
 
             int n = n_integration_points;
             // Order matters: First T, then P!
             NumLib::shapeFunctionInterpolate(local_x, sm.N, T_int_pt, p_int_pt);
 
             // use T_int_pt here ...
+
+            double density_water_T = DensityWater_T(density_water, T_int_pt, temperature0, beta);
+            std::cout << density_water_T << std::endl;
 
             phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
 
@@ -159,19 +170,19 @@ thermal_conductivity_soil, thermal_conductivity_water); */
  specific_heat_capacity_soil, specific_heat_capacity_ice,
  specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat); */
             heat_capacity = density_soil*specific_heat_capacity_soil*(1 - porosity)
-                    + density_water*specific_heat_capacity_water*porosity;  // mixed heat capacity
+                    + density_water_T*specific_heat_capacity_water*porosity;  // mixed heat capacity
             auto const detJ_w_NT = (sm.detJ * wp.getWeight() * sm.N.transpose()).eval();
             auto const p_nodal_values =
                     Eigen::Map<const Eigen::VectorXd>(&local_x[num_nodes], num_nodes);
             auto const velocity =  (-hydraulic_conductivity*
                     sm.dNdx*p_nodal_values).eval();
-            std::cout << velocity << std::endl;
+            //std::cout << velocity << std::endl;
             auto const detJ_w_NT_vT_dNdx =
                 (detJ_w_NT * velocity.transpose() * sm.dNdx).eval();
             // matrix assembly
             _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
-                                  sm.detJ * wp.getWeight() + detJ_w_NT_vT_dNdx*density_water*specific_heat_capacity_water;
+                                  sm.detJ * wp.getWeight() + detJ_w_NT_vT_dNdx*density_water_T*specific_heat_capacity_water;
  /*sm.N*density_water*specific_heat_capacity_water*Real_hydraulic_conductivity*
             (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight(); */
             _Kpp.noalias() += sm.dNdx.transpose() *
@@ -189,8 +200,9 @@ thermal_conductivity_soil, thermal_conductivity_water); */
                                   sm.detJ * wp.getWeight();
             _Mpt.noalias() += sm.N.transpose() *0*sm.N *
                                   sm.detJ * wp.getWeight();
-            _Mtp.noalias() += sm.N.transpose() *0*sm.N *
+            _Mtp.noalias() += sm.N.transpose() *(-beta)*sm.N *
                                   sm.detJ * wp.getWeight();
+            _Bpp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(_element.getDimension()-1)*g*density_water_T;
 
 
             _localK.block<num_nodes,num_nodes>(0,0).noalias() += _Ktt;
@@ -201,6 +213,7 @@ thermal_conductivity_soil, thermal_conductivity_water); */
             _localM.block<num_nodes,num_nodes>(num_nodes,0).noalias() += _Mtp;
             _localK.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Kpt;
             _localM.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Mpt;
+            _localRhs.block<num_nodes,1>(num_nodes,0).noalias() -= _Bpp  ;
             // heat flux only computed for output.
             auto const heat_flux = (-thermal_conductivity * sm.dNdx *
                 Eigen::Map<const NodalVectorType>(&local_x[0], num_nodes)
@@ -255,6 +268,7 @@ private:
     NodalMatrixType _localK;
     NodalMatrixType _localM;
     NodalVectorType _localRhs;
+    NodalVectorType _gravity_v;
 
     unsigned const _integration_order;
     std::vector<std::vector<double>> _heat_fluxes
