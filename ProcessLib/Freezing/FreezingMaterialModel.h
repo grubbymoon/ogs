@@ -57,7 +57,7 @@ static double KozenyKarman(double hydraulic_conductiviy, double porosity, double
 
 static double DensityWater_T(double density0, double temperature, double temperature0, double beta)
 {
-   return density0*(1 + beta*(temperature - temperature0));
+   return density0*(1 - beta*(temperature - temperature0));
 }
 
 }  // FREEZING

@@ -97,20 +97,20 @@ public:
         _localRhs.setZero();
 
         const double density_water = 1000.0 ;
-        const double temperature0 = 273.15 ;
-        const double beta = 2.14e-4 ;  // thermal expansion coefficient
+        const double temperature0 = 283.15 ;
+        const double beta = 2.07e-4 ;  // thermal expansion coefficient
         const double density_ice = 1000.0 ; // for the mass balance
-        const double density_soil = 2000.0 ;
-        const double specific_heat_capacity_soil = 250.0 ;
+        const double density_soil = 1750.0 ;
+        const double specific_heat_capacity_soil = 1714.0 ;
         const double specific_heat_capacity_ice = 2000.0 ;
-        const double specific_heat_capacity_water = 1100.0 ;
+        const double specific_heat_capacity_water = 4186.0 ;
         const double thermal_conductivity_ice = 2.0 ;
-        const double thermal_conductivity_soil = 5.0 ;
-        const double thermal_conductivity_water = 1.0 ;
-        const double specific_storage = 0 ;       // m-1 if 0 then constant velocity
-        const double hydraulic_conductivity = 5.787e-12 ; // m/s permeability/viscosity
-        const double g = 9.81 ;
-        double porosity = 0.1 ;
+        const double thermal_conductivity_soil = 5 ;
+        const double thermal_conductivity_water = 3 ;
+        const double specific_storage = 0 ;       // m-1 if 0 then no stoarge term
+        const double hydraulic_conductivity = 10e-9 ; // m/s permeability/viscosity
+        const double g = 0 ;  // if 0 then do not consider gravity
+        double porosity = 0.3 ;
         double phi_i = 0.0 ;
         double sigmoid_coeff = 5.0 ;
         double latent_heat = 334000 ;
@@ -153,7 +153,7 @@ public:
             // use T_int_pt here ...
 
             double density_water_T = DensityWater_T(density_water, T_int_pt, temperature0, beta);
-            std::cout << density_water_T << std::endl;
+            //std::cout << density_water_T << std::endl;
 
             phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
 
@@ -200,7 +200,7 @@ thermal_conductivity_soil, thermal_conductivity_water); */
                                   sm.detJ * wp.getWeight();
             _Mpt.noalias() += sm.N.transpose() *0*sm.N *
                                   sm.detJ * wp.getWeight();
-            _Mtp.noalias() += sm.N.transpose() *(-beta)*sm.N *
+            _Mtp.noalias() += sm.N.transpose() *porosity*(-beta)*sm.N *
                                   sm.detJ * wp.getWeight();
             _Bpp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(_element.getDimension()-1)*g*density_water_T;
 
