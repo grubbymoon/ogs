@@ -183,11 +183,11 @@ protected:
 
     unsigned const _integration_order;
 
-private:
-    GlobalSparsityPattern _sparsity_pattern;
-
     /// Variables used by this process.
     std::vector<std::reference_wrapper<ProcessVariable>> _process_variables;
+
+private:
+    GlobalSparsityPattern _sparsity_pattern;
 
     BoundaryConditionCollection _boundary_conditions;
 
