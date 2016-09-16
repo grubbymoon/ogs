@@ -9,9 +9,6 @@ APPEND_SOURCE_FILES(SOURCES GroundwaterFlow)
 add_subdirectory(TES)
 APPEND_SOURCE_FILES(SOURCES TES)
 
-add_subdirectory(HeatTransport)
-APPEND_SOURCE_FILES(SOURCES HeatTransport)
-
 add_subdirectory(Freezing)
 APPEND_SOURCE_FILES(SOURCES Freezing)
 

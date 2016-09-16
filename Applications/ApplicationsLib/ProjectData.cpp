@@ -36,7 +36,6 @@
 
 #include "ProcessLib/GroundwaterFlow/CreateGroundwaterFlowProcess.h"
 #include "ProcessLib/TES/CreateTESProcess.h"
-#include "ProcessLib/HeatTransport/CreateHeatTransportProcess.h"
 #include "ProcessLib/Freezing/CreateFreezingProcess.h"
 
 namespace detail
@@ -187,12 +186,6 @@ void ProjectData::buildProcesses()
         else if (type == "TES")
         {
             _processes.emplace_back(ProcessLib::TES::createTESProcess(
-                *_mesh_vec[0], *nl_slv, std::move(time_disc),
-                _process_variables, _parameters, pc));
-        }
-        else if (type == "HEAT_TRANSPORT")
-        {
-            _processes.emplace_back(ProcessLib::HeatTransport::createHeatTransportProcess(
                 *_mesh_vec[0], *nl_slv, std::move(time_disc),
                 _process_variables, _parameters, pc));
         }
