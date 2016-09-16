@@ -50,14 +50,19 @@ std::unique_ptr<Process> createFreezingProcess(
     SecondaryVariableCollection secondary_variables{
         //! \ogs_file_param{process__secondary_variables}
         config.getConfigSubtreeOptional("secondary_variables"),
-        {//! \ogs_file_param_special{process__Freezing__secondary_variables__heat_flux_x}
+        {
+            /*//! \ogs_file_param_special{process__Freezing__secondary_variables__heat_flux_x}
          "heat_flux_x",
          //! \ogs_file_param_special{process__Freezing__secondary_variables__heat_flux_y}
          "heat_flux_y",
          //! \ogs_file_param_special{process__Freezing__secondary_variables__heat_flux_z}
-         "heat_flux_z"}};
-
-
+         "heat_flux_z" */
+         //! \ogs_file_param_special{process__Freezing__secondary_variables__darcy_velocity_x}
+         "darcy_velocity_x",
+         //! \ogs_file_param_special{process__Freezing__secondary_variables__darcy_velocity_y}
+         "darcy_velocity_y",
+         //! \ogs_file_param_special{process__Freezing__secondary_variables__darcy_velocity_z}
+         "darcy_velocity_z"}};
     ProcessOutput
         //! \ogs_file_param{process__output}
         process_output{config.getConfigSubtree("output"), process_variables,

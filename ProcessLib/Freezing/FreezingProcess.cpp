@@ -53,7 +53,7 @@ void FreezingProcess::initializeConcreteProcess(
         mesh.getDimension(), mesh.getElements(), dof_table, integration_order,
         _local_assemblers, _process_data);
 
-    _secondary_variables.addSecondaryVariable(
+   /* _secondary_variables.addSecondaryVariable(
            "heat_flux_x", 1,
            makeExtrapolator(
                getExtrapolator(), _local_assemblers,
@@ -71,8 +71,30 @@ void FreezingProcess::initializeConcreteProcess(
                "heat_flux_z", 1,
                makeExtrapolator(getExtrapolator(), _local_assemblers,
                                 &FreezingLocalAssemblerInterface::
-                                    getIntPtHeatFluxZ));
-   }
+                                    getIntPtHeatFluxZ));  
+       }*/
+
+    _secondary_variables.addSecondaryVariable(
+          "darcy_velocity_x", 1,
+          makeExtrapolator(
+              getExtrapolator(), _local_assemblers,
+              &FreezingLocalAssemblerInterface::getIntPtDarcyVelocityX));
+
+          if (mesh.getDimension() > 1) {
+              _secondary_variables.addSecondaryVariable(
+                  "darcy_velocity_y", 1,
+                  makeExtrapolator(getExtrapolator(), _local_assemblers,
+                                   &FreezingLocalAssemblerInterface::
+                                       getIntPtDarcyVelocityY));
+          }
+          if (mesh.getDimension() > 2) {
+              _secondary_variables.addSecondaryVariable(
+                  "darcy_velocity_z", 1,
+                  makeExtrapolator(getExtrapolator(), _local_assemblers,
+                                   &FreezingLocalAssemblerInterface::
+                                       getIntPtDarcyVelocityZ));
+          }
+
 }
 
 void FreezingProcess::assembleConcreteProcess(const double t,

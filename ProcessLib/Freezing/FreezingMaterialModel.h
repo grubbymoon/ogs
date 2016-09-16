@@ -1,6 +1,8 @@
 #ifndef PROCESS_LIB_FREEZINGMATERIALMODEL_H_
 #define PROCESS_LIB_FREEZINGMATERIALMODEL_H_
 
+#include <math.h>
+
 namespace ProcessLib
 {
 
@@ -58,6 +60,11 @@ static double KozenyKarman(double hydraulic_conductiviy, double porosity, double
 static double DensityWater_T(double density0, double temperature, double temperature0, double beta)
 {
    return density0*(1 - beta*(temperature - temperature0));
+}
+
+static double Viscosity(double viscosity0, double temperature, double temperature_con, double temperature0)
+{
+    return viscosity0*exp(-(temperature - temperature0)/temperature_con); 
 }
 
 }  // FREEZING
