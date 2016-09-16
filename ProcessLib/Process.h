@@ -154,7 +154,7 @@ private:
         return NumLib::IterationResult::SUCCESS;
     }
 
-    void constructDofTable();
+    virtual void constructDofTable();
 
     void initializeExtrapolator();
 
