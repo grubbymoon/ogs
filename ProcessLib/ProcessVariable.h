@@ -72,6 +72,7 @@ private:
 
     std::vector<BoundaryConditionConfig> _bc_configs;
     std::unique_ptr<BoundaryConditionBuilder> _bc_builder;
+    bool _decrease_order;
 };
 
 }  // namespace ProcessLib
