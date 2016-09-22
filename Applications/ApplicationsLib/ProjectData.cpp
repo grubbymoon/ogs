@@ -35,6 +35,7 @@
 #include "ProcessLib/SmallDeformation/CreateSmallDeformationProcess.h"
 #include "ProcessLib/TES/CreateTESProcess.h"
 #include "ProcessLib/HeatConduction/CreateHeatConductionProcess.h"
+#include "ProcessLib/Freezing/CreateFreezingProcess.h"
 
 namespace detail
 {
@@ -271,6 +272,11 @@ void ProjectData::parseProcesses(BaseLib::ConfigTree const& processes_config)
         else if (type == "HEAT_CONDUCTION")
         {
             process = ProcessLib::HeatConduction::createHeatConductionProcess(
+                *_mesh_vec[0], _process_variables, _parameters, process_config);
+        }
+        else if (type == "FREEZING")
+        {
+            process = ProcessLib::Freezing::createFreezingProcess(
                 *_mesh_vec[0], _process_variables, _parameters, process_config);
         }
         else if (type == "SMALL_DEFORMATION")
