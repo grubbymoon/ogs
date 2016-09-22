@@ -39,6 +39,7 @@
 #include "ProcessLib/SmallDeformation/CreateSmallDeformationProcess.h"
 #include "ProcessLib/SmallDeformationWithLIE/CreateSmallDeformationProcess.h"
 #include "ProcessLib/TES/CreateTESProcess.h"
+#include "ProcessLib/Freezing/CreateFreezingProcess.h"
 
 namespace detail
 {
@@ -312,6 +313,11 @@ void ProjectData::parseProcesses(BaseLib::ConfigTree const& processes_config,
                 *_mesh_vec[0], std::move(jacobian_assembler),
                 _process_variables, _parameters, integration_order,
                 process_config);
+        }
+        else if (type == "FREEZING")
+        {
+            process = ProcessLib::Freezing::createFreezingProcess(
+                *_mesh_vec[0], _process_variables, _parameters, process_config);
         }
         else if (type == "SMALL_DEFORMATION")
         {
