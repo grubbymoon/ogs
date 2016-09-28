@@ -371,6 +371,16 @@ if(NOT OGS_USE_MPI)
          DIFF_DATA
          h_us_quad_1000.vtu richards_pcs_0_ts_100_t_100.000000.vtu PRESSURE1 pressure
     )
+    AddTest(
+         NAME 2D_Hydrothermal
+         PATH Parabolic/TH
+         EXECUTABLE ogs
+         EXECUTABLE_ARGS quad_80x60.prj
+         TESTER vtkdiff
+         ABSTOL 1e-3 RELTOL 1e-3
+         DIFF_DATA
+         temperature_analytical.vtu square_1e3_pcs_0_ts_4_t_4000.000000.vtu temperature_analytical temperature
+   )
     # Mechanics; Small deformations, linear (SDL)
     AddTest(
         NAME Mechanics_SDL_square_1e0_displacementBC
@@ -852,76 +862,4 @@ else()
         tes_zeolite_discharge_large_ts_28_t_1_000000.vtu tes_zeolite_discharge_large_pcs_0_ts_28_t_1_000000_0.vtu v_mass_frac v_mass_frac
 #        tes_zeolite_discharge_large_ts_28_t_1_0.vtu solid_density solid_density
     )
-
-    # Liquid flow
-    AddTest(
-        NAME LiquidFlow_LineDirichletNeumannBC
-        PATH Parabolic/LiquidFlow/LineDirichletNeumannBC
-        EXECUTABLE_ARGS line_dirichlet_neumannBC.prj
-        WRAPPER mpirun
-        WRAPPER_ARGS -np 1
-        TESTER vtkdiff
-        ABSTOL 1e-8 RELTOL 1e-8
-        DIFF_DATA
-        sat1D.vtu sat_1D_pcs_0_ts_1_t_1.000000.vtu AnalyticSolution pressure
-    )
-    AddTest(
-        NAME LiquidFlow_GravityDriven
-        PATH Parabolic/LiquidFlow/GravityDriven
-        EXECUTABLE_ARGS gravity_driven.prj
-        WRAPPER mpirun
-        WRAPPER_ARGS -np 1
-        TESTER vtkdiff
-        ABSTOL 1e-8 RELTOL 1e-8
-        DIFF_DATA
-        mesh2D.vtu gravity_driven_pcs_0_ts_1_t_1.000000.vtu AnalyticSolution pressure
-    )
-    AddTest(
-        NAME LiquidFlow_PressureBCatCornerOfAnisotropicSquare
-        PATH Parabolic/LiquidFlow/PressureBCatCornerOfAnisotropicSquare
-        EXECUTABLE_ARGS pressureBC_at_corner_of_anisotropic_square.prj
-        WRAPPER mpirun
-        WRAPPER_ARGS -np 1
-        TESTER vtkdiff
-        ABSTOL 1e-8 RELTOL 1e-8
-        DIFF_DATA
-        mesh2D.vtu sat_2D_lflow_pcs_0_ts_1_t_1.000000.vtu OGS5_Results pressure
-    )
-    AddTest(
-        NAME LiquidFlow_AxisymTheis
-        PATH Parabolic/LiquidFlow/AxiSymTheis
-        EXECUTABLE_ARGS axisym_theis.prj
-        WRAPPER mpirun
-        WRAPPER_ARGS -np 1
-        TESTER vtkdiff
-        ABSTOL 1e-8 RELTOL 1e-8
-        DIFF_DATA
-        axisym_theis.vtu liquid_pcs_pcs_0_ts_30_t_1728.000000.vtu OGS5_pressure pressure
-    )
-    AddTest(
-        NAME LARGE_LiquidFlow_Anisotropic_GravityDriven3D
-        PATH Parabolic/LiquidFlow/GravityDriven3D
-        EXECUTABLE_ARGS anisotropic_gravity_driven3D.prj
-        WRAPPER mpirun
-        WRAPPER_ARGS -np 1
-        WRAPPER time
-        TESTER vtkdiff
-        ABSTOL 1e-6 RELTOL 1e-6
-        DIFF_DATA
-        hex.vtu anisotropic_gravity_driven3D_pcs_0_ts_1_t_1.000000.vtu analytic_pressure pressure
-    )
-
-    AddTest(
-        NAME LARGE_LiquidFlow_Isotropic_GravityDriven3D
-        PATH Parabolic/LiquidFlow/GravityDriven3D
-        EXECUTABLE_ARGS isotropic_gravity_driven3D.prj
-        WRAPPER mpirun
-        WRAPPER_ARGS -np 1
-        WRAPPER time
-        TESTER vtkdiff
-        ABSTOL 1e-6 RELTOL 1e-6
-        DIFF_DATA
-        hex.vtu isotropic_gravity_driven3D_pcs_0_ts_1_t_1.000000.vtu analytic_pressure pressure
-    )
-
 endif()
