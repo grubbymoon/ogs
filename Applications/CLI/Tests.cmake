@@ -271,6 +271,19 @@ if(NOT OGS_USE_MPI)
          temperature_analytical.vtu line_60_heat_pcs_0_ts_405_t_31640625.000000.vtu Temperature_Analytical_1year temperature
     )
 
+
+AddTest(
+     NAME 2D_Hydrothermal
+     PATH Parabolic/TH
+     EXECUTABLE ogs
+     EXECUTABLE_ARGS quad_80x60.prj
+     WRAPPER time
+     TESTER vtkdiff
+     ABSTOL 1e-3 RELTOL 1e-3
+     DIFF_DATA
+     temperature_analytical.vtu square_1e3_pcs_0_ts_4_t_4000.000000.vtu temperature_analytical temperature
+)
+
     # Mechanics; Small deformations, linear (SDL)
     AddTest(
         NAME Mechanics_SDL_square_1e0_displacementBC
