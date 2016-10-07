@@ -191,6 +191,18 @@ if(NOT OGS_USE_MPI)
         tes_zeolite_discharge_large_pcs_0_ts_28_t_1_000000.vtu tes_zeolite_discharge_large_pcs_0_ts_28_t_1.000000.vtu solid_density solid_density
     )
 
+AddTest(
+    NAME LARGE_Thermal_Convection_const_viscosity
+    PATH ThermalConvection
+    EXECUTABLE ogs
+    EXECUTABLE_ARGS quad_5500x5500.prj
+    WRAPPER time
+    TESTER vtkdiff
+    ABSTOL 1e-4 RELTOL 1e-4
+    DIFF_DATA
+    Const_visco_final_t_step.vtu square_1e3_pcs_0_ts_98_t_51000000000.000000.vtu TEMPERATURE1 temperature
+)
+
 else()
     # MPI groundwater flow tests
     AddTest(

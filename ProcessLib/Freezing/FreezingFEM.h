@@ -168,8 +168,8 @@ public:
           //  double density_water_T =  DensityWater_T(density_water, T_int_pt, temperature0, beta);
             double density_water_T = density_water*(1 - beta*(T_int_pt - temperature0));
           //  std::cout << density_water_T << std::endl;
-            double viscosity = Viscosity(viscosity0, T_int_pt, temperature_con, temperature0); // calculate the dynamic viscosity
-            double hydraulic_conductivity = permeability/viscosity ; // m/s permeability/viscosity
+          //  double viscosity = Viscosity(viscosity0, T_int_pt, temperature_con, temperature0); // calculate the dynamic viscosity
+            double hydraulic_conductivity = permeability/viscosity0 ; // m/s permeability/viscosity
           //  phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
 
          // Real_hydraulic_conductivity = KozenyKarman(hydraulic_conductivity, porosity, phi_i);
