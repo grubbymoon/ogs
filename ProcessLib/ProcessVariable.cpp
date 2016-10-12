@@ -27,12 +27,13 @@ ProcessVariable::ProcessVariable(
       _mesh(mesh),
       //! \ogs_file_param{prj__process_variables__process_variable__components}
       _n_components(config.getConfigParameter<int>("components")),
+      //! \ogs_file_param{prj__process_variables__process_variable__order}
+      _shapefunction_order(config.getConfigParameter<int>("order")),
       _initial_condition(findParameter<double>(
           //! \ogs_file_param{prj__process_variables__process_variable__initial_condition}
           config.getConfigParameter<std::string>("initial_condition"),
           parameters, _n_components)),
-      _bc_builder(new BoundaryConditionBuilder()),
-      _decrease_order(false)
+      _bc_builder(new BoundaryConditionBuilder())
 {
     DBUG("Constructing process variable %s", _name.c_str());
 
@@ -40,9 +41,6 @@ ProcessVariable::ProcessVariable(
     //! \ogs_file_param{prj__process_variables__process_variable__boundary_conditions}
     if (auto bcs_config = config.getConfigSubtreeOptional("boundary_conditions"))
     {
-        _decrease_order =
-                //! \ogs_file_param{boundary_condition__decrease_order}
-                bcs_config->getConfigParameter<bool>("decrease_order", false);
         for (auto bc_config :
              //! \ogs_file_param{prj__process_variables__process_variable__boundary_conditions__boundary_condition}
              bcs_config->getConfigSubtreeList("boundary_condition"))
@@ -99,10 +97,10 @@ ProcessVariable::ProcessVariable(ProcessVariable&& other)
     : _name(std::move(other._name)),
       _mesh(other._mesh),
       _n_components(other._n_components),
+      _shapefunction_order(other._shapefunction_order),
       _initial_condition(std::move(other._initial_condition)),
-      _bc_configs(std::move(other._bc_configs)),
       _bc_builder(std::move(other._bc_builder)),
-      _decrease_order(other._decrease_order)
+      _bc_configs(std::move(other._bc_configs))
 {
 }
 
@@ -148,7 +146,7 @@ ProcessVariable::createBoundaryConditions(
     for (auto& config : _bc_configs)
         bcs.emplace_back(_bc_builder->createBoundaryCondition(config, dof_table, _mesh,
                                                  variable_id, integration_order,
-                                                 _decrease_order, parameters));
+                                                 _shapefunction_order, parameters));
 
     return bcs;
 }

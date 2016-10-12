@@ -68,11 +68,12 @@ private:
     std::string const _name;
     MeshLib::Mesh& _mesh;
     const int _n_components;
+    int _shapefunction_order;  ///< Order of the shapefunctions. Requires
+                               /// appropriate mesh.
     Parameter<double> const& _initial_condition;
+    std::unique_ptr<BoundaryConditionBuilder> _bc_builder;
 
     std::vector<BoundaryConditionConfig> _bc_configs;
-    std::unique_ptr<BoundaryConditionBuilder> _bc_builder;
-    bool _decrease_order;
 };
 
 }  // namespace ProcessLib
