@@ -28,6 +28,9 @@ public:
     /// Constant: The number of all nodes for this element
     static const unsigned n_all_nodes = 3u;
 
+    /// Constant: Quadratic element
+    static const int order = 2;
+
     /// Constant: The FEM type of the element
     static const CellType cell_type = CellType::LINE3;
 

@@ -58,6 +58,9 @@ public:
     /// Constant: Local node index table for edge
     static const unsigned edge_nodes[12][3];
 
+    /// Constant: Quadratic element
+    static const int order = 2;
+
     /// Returns the i-th edge of the element.
     typedef QuadraticEdgeReturn EdgeReturn;
 

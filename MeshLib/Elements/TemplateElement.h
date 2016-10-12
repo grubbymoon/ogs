@@ -105,6 +105,9 @@ public:
     /// Get the FEM type of this element.
     virtual CellType getCellType() const { return ELEMENT_RULE::cell_type; }
 
+    /// \copydoc MeshLib::Element::getElementsOrder()
+    int getElementsOrder() const { return ELEMENT_RULE::order; }
+
     /// Returns true if these two indices form an edge and false otherwise
     bool isEdge(unsigned idx1, unsigned idx2) const;
 

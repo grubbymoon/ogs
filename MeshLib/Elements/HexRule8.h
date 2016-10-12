@@ -73,6 +73,9 @@ public:
     /// Constant: Local node index table for edge
     static const unsigned edge_nodes[12][2];
 
+    /// Constant: Linear element
+    static const int order = 1;
+
     /// Returns the i-th edge of the element.
     typedef LinearEdgeReturn EdgeReturn;
 

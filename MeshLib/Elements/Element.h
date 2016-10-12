@@ -135,6 +135,10 @@ public:
     virtual CellType getCellType() const = 0;
 
 
+    /** The order of the element: 1 - linear, 2 - quadratic, etc.
+     */
+    virtual int getElementsOrder() const = 0;
+
     /**
      * Returns true if the element has zero length/area/volume.
      */

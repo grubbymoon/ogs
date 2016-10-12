@@ -71,6 +71,9 @@ public:
     /// Constant: Local node index table for edge
     static const unsigned edge_nodes[9][2];
 
+    /// Constant: Linear element
+    static const int order = 1;
+
     /// Constant: Table for the number of nodes for each face
     static const unsigned n_face_nodes[5];
 

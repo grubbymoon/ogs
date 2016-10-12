@@ -40,6 +40,9 @@ public:
     /// Constant: Local node index table for edge
     static const unsigned edge_nodes[1][1];
 
+    /// Constant: Linear element
+    static const int order = 1;
+
     /// Edge rule
     typedef NoEdgeReturn EdgeReturn;
 

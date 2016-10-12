@@ -56,6 +56,9 @@ public:
     /// Constant: Local node index table for edge
     static const unsigned edge_nodes[9][3];
 
+    /// Constant: Quadratic element
+    static const int order = 2;
+
     /// Constant: Table for the number of nodes for each face
     static const unsigned n_face_nodes[5];
 
