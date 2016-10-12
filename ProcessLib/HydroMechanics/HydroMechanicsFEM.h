@@ -102,6 +102,10 @@ struct IntegrationPointData final
 struct HydroMechanicsLocalAssemblerInterface
     : public ProcessLib::LocalAssemblerInterface
 {
+    virtual std::vector<double> computeValue(
+        int const variable_id,
+        MathLib::Point3d const& position,
+        std::vector<double> const& x_local) const = 0;
 };
 
 template <typename ShapeFunctionDisplacement, typename IntegrationMethod,
@@ -377,6 +381,14 @@ public:
         {
             _ip_data[ip].pushBackState();
         }
+    }
+
+    std::vector<double> computeValue(
+        int const variable_id,
+        MathLib::Point3d const& position,
+        std::vector<double> const& x_local) const override
+    {
+        return {0.1};
     }
 
 private:

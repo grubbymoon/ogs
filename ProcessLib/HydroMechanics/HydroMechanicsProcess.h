@@ -12,6 +12,7 @@
 
 #include <cassert>
 
+#include "NumLib/DOF/DOFTableUtil.h"
 #include "MeshLib/Elements/Utils.h"
 #include "ProcessLib/Process.h"
 #include "ProcessLib/HydroMechanics/CreateLocalAssemblers.h"
@@ -148,6 +149,19 @@ void constructDofTable() override
             _local_assemblers, *_local_to_global_index_map, x);
     }
 
+    std::vector<double> computeValue(int const variable_id,
+                                     std::size_t const element_id,
+                                     MathLib::Point3d const& position,
+                                     GlobalVector const& x) const override
+    {
+        // fetch local_x from primary variable
+        std::vector<GlobalIndexType> indices_cache;
+        auto const r_c_indices = NumLib::getRowColumnIndices(
+            element_id, *_local_to_global_index_map, indices_cache);
+
+        return _local_assemblers[element_id]->computeValue(
+            variable_id, position, {x.get(r_c_indices.rows)});
+    }
 private:
     std::vector<MeshLib::Node*> _base_nodes;
     std::unique_ptr<MeshLib::MeshSubset const> _mesh_subset_base_nodes;

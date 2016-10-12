@@ -101,6 +101,15 @@ public:
         return _secondary_variables;
     }
 
+    // Used as a call back for process output and process communication.
+    virtual std::vector<double> computeValue(int const variable_id,
+                                             std::size_t const element_id,
+                                             MathLib::Point3d const& position,
+                                             GlobalVector const& x) const
+    {
+        return {};
+    }
+
     // Used as a call back for CalculateSurfaceFlux process.
     virtual std::vector<double> getFlux(std::size_t /*element_id*/,
                                         MathLib::Point3d const& /*p*/,
