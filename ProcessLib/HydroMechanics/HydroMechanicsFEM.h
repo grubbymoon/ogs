@@ -89,8 +89,8 @@ struct IntegrationPointData final
         double const t,
         SpatialPosition const& x_position,
         double const dt,
-        Eigen::Map<
-            typename ShapeMatricesTypePressure::NodalVectorType const> const& u)
+        Eigen::Map<typename ShapeMatrixTypeDisplacement::
+                       NodalDOFVectorType const> const& u)
     {
         _eps.noalias() = _b_matrices * u;
         _solid_material.computeConstitutiveRelation(
@@ -221,19 +221,22 @@ public:
         auto const local_matrix_size = local_x.size();
         assert(local_matrix_size == pressure_size + displacement_size);
 
-        auto p = Eigen::Map<
-            typename ShapeMatricesTypePressure::NodalVectorType const>(
-            local_x.data() + pressure_index, pressure_size);
+        auto p =
+            Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                pressure_size> const>(local_x.data() + pressure_index,
+                                      pressure_size);
 
-        auto u = Eigen::Map<typename ShapeMatricesType::NodalVectorType const>(
-            local_x.data() + displacement_index, displacement_size);
+        auto u = Eigen::Map<typename ShapeMatricesType::template VectorType<
+            displacement_size> const>(local_x.data() + displacement_index,
+                                      displacement_size);
 
-        auto p_dot = Eigen::Map<
-            typename ShapeMatricesTypePressure::NodalVectorType const>(
-            local_xdot.data() + pressure_index, pressure_size);
-        auto u_dot =
-            Eigen::Map<typename ShapeMatricesType::NodalVectorType const>(
-                local_xdot.data() + displacement_index, displacement_size);
+        auto p_dot =
+            Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                pressure_size> const>(local_xdot.data() + pressure_index,
+                                      pressure_size);
+        auto u_dot = Eigen::Map<typename ShapeMatricesType::template VectorType<
+            displacement_size> const>(local_xdot.data() + displacement_index,
+                                      displacement_size);
 
         auto local_Jac = MathLib::createZeroedMatrix<StiffnessMatrixType>(
             local_Jac_data, local_matrix_size, local_matrix_size);
