@@ -26,6 +26,9 @@ APPEND_SOURCE_FILES(SOURCES TES)
 add_subdirectory(HeatConduction)
 APPEND_SOURCE_FILES(SOURCES HeatConduction)
 
+add_subdirectory(DensityDrivenFlow)
+APPEND_SOURCE_FILES(SOURCES DensityDrivenFlow)
+
 add_subdirectory(CalculateSurfaceFlux)
 APPEND_SOURCE_FILES(SOURCES CalculateSurfaceFlux)
 
