@@ -344,6 +344,18 @@ if(NOT OGS_USE_MPI)
          temperature_analytical.vtu line_60_heat_pcs_0_ts_405_t_31640625.000000.vtu Temperature_Analytical_1year temperature
     )
 
+    AddTest(
+         NAME LARGE_2D_ThermalConvection_constviscosity
+         PATH ThermalConvection/ConstViscosity
+         EXECUTABLE ogs
+         EXECUTABLE_ARGS quad_5500x5500.prj
+         WRAPPER time
+         TESTER vtkdiff
+         ABSTOL 1e-10 RELTOL 1e-16
+         DIFF_DATA
+         ThermalConvection_const_viscosity_expected.vtu ThermalConvection_pcs_0_ts_149_t_50000000000.000000.vtu temperature temperature
+)
+
     # Mechanics; Small deformations, linear (SDL)
     AddTest(
         NAME Mechanics_SDL_square_1e0_displacementBC
