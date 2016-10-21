@@ -271,6 +271,19 @@ if(NOT OGS_USE_MPI)
          temperature_analytical.vtu line_60_heat_pcs_0_ts_405_t_31640625.000000.vtu Temperature_Analytical_1year temperature
     )
 
+    AddTest(
+         NAME LARGE_Freezing_TH
+         PATH Freezing_TH
+         EXECUTABLE ogs
+         EXECUTABLE_ARGS quad_3x1.prj
+         WRAPPER time
+         TESTER vtkdiff
+         ABSTOL 1e-12 RELTOL 1e-12
+         DIFF_DATA
+         expected_TH_Freezing_ts_20_t_1000.vtu square_1e3_pcs_0_ts_20_t_1000.000000.vtu temperature temperature
+         expected_TH_Freezing_ts_20_t_1000.vtu square_1e3_pcs_0_ts_20_t_1000.000000.vtu pressure pressure
+    )
+
 
 AddTest(
      NAME 2D_Hydrothermal
