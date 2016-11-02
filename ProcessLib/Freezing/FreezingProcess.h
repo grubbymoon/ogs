@@ -26,7 +26,10 @@ class FreezingProcess final : public Process
 public:
     FreezingProcess(
         MeshLib::Mesh& mesh,
+        std::unique_ptr<ProcessLib::AbstractJacobianAssembler>&&
+            jacobian_assembler,
         std::vector<std::unique_ptr<ParameterBase>> const& parameters,
+        unsigned const integration_order,
         std::vector<std::reference_wrapper<ProcessVariable>>&&
             process_variables,
         FreezingProcessData&& process_data,
@@ -48,6 +51,11 @@ private:
     void assembleConcreteProcess(const double t, GlobalVector const& x,
                                  GlobalMatrix& M, GlobalMatrix& K,
                                  GlobalVector& b) override;
+
+    void assembleWithJacobianConcreteProcess(
+            const double t, GlobalVector const& x, GlobalVector const& xdot,
+            const double dxdot_dx, const double dx_dx, GlobalMatrix& M,
+    GlobalMatrix& K, GlobalVector& b, GlobalMatrix& Jac) override;
 
     FreezingProcessData _process_data;
 

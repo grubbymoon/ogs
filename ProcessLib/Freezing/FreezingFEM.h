@@ -24,6 +24,7 @@
 #include "ProcessLib/Utils/InitShapeMatrices.h"
 #include "FreezingProcessData.h"
 #include "FreezingMaterialModel.h"
+#include "MathLib/LinAlg/Eigen/EigenMapTools.h"
 using namespace Eigen;
 
 namespace ProcessLib
@@ -39,15 +40,6 @@ class FreezingLocalAssemblerInterface
         , public NumLib::ExtrapolatableElement
 {
 public:
-   // virtual std::vector<double> const& getIntPtHeatFluxX(
-   //     std::vector<double>& /*cache*/) const = 0;
-
-  //  virtual std::vector<double> const& getIntPtHeatFluxY(
-  //      std::vector<double>& /*cache*/) const = 0;
-
-  //  virtual std::vector<double> const& getIntPtHeatFluxZ(
-//        std::vector<double>& /*cache*/) const = 0;
-
     virtual std::vector<double> const& getIntPtDarcyVelocityX(
         std::vector<double>& /*cache*/) const = 0;
 
@@ -55,7 +47,7 @@ public:
         std::vector<double>& /*cache*/) const = 0;
 
     virtual std::vector<double> const& getIntPtDarcyVelocityZ(
-std::vector<double>& /*cache*/) const = 0;
+        std::vector<double>& /*cache*/) const = 0;
 };
 
 
@@ -81,29 +73,41 @@ public:
     /// element matrix.
     LocalAssemblerData(MeshLib::Element const& element,
                        std::size_t const local_matrix_size,
+                       bool is_axially_symmetric,
                        unsigned const integration_order,
                        FreezingProcessData const& process_data)
-        : _element(element)
-        , _process_data(process_data)
-        , _localK(local_matrix_size, local_matrix_size)
-        , _localM(local_matrix_size, local_matrix_size)
-        , _localRhs(local_matrix_size)
-        , _integration_method(integration_order)
-        , _shape_matrices(initShapeMatrices<ShapeFunction, ShapeMatricesType, IntegrationMethod, GlobalDim>(
-                  element, _integration_method))
+        : _element(element),
+          _process_data(process_data),
+          _integration_method(integration_order),
+          _shape_matrices(initShapeMatrices<ShapeFunction, ShapeMatricesType,
+                                            IntegrationMethod, GlobalDim>(
+              element, is_axially_symmetric, _integration_method)),
+          _darcy_velocities(
+              GlobalDim,
+              std::vector<double>(_integration_method.getNumberOfPoints()))
    {
         // This assertion is valid only if all nodal d.o.f. use the same shape matrices.
        assert(local_matrix_size == ShapeFunction::NPOINTS * NUM_NODAL_DOF);
+       (void)local_matrix_size;
    }
 
     /* commit t? */
-    void assembleConcrete(double const /*t*/, std::vector<double> const& local_x,
-                  NumLib::LocalToGlobalIndexMap::RowColumnIndices const& indices,
-                  GlobalMatrix& M, GlobalMatrix& K, GlobalVector& b) override
+    void assemble(double const t, std::vector<double> const& local_x,
+                  std::vector<double>& local_M_data,
+                  std::vector<double>& local_K_data,
+                  std::vector<double>& local_b_data) override
     {
-        _localK.setZero();
-        _localM.setZero();
-        _localRhs.setZero();
+        auto const local_matrix_size = local_x.size();
+               // This assertion is valid only if all nodal d.o.f. use the same shape
+               // matrices.
+               assert(local_matrix_size == ShapeFunction::NPOINTS * NUM_NODAL_DOF);
+
+               auto local_M = MathLib::createZeroedMatrix<NodalMatrixType>(
+                   local_M_data, local_matrix_size, local_matrix_size);
+               auto local_K = MathLib::createZeroedMatrix<NodalMatrixType>(
+                   local_K_data, local_matrix_size, local_matrix_size);
+               auto local_b = MathLib::createZeroedVector<NodalVectorType>(
+                   local_b_data, local_matrix_size);
 
         const double density_water = 1000.0 ;
         const double density_water_T = 1000.0 ;  // thermal expansion is ignored
@@ -164,7 +168,7 @@ public:
             MatrixNN _Kpt;
             MatrixNN _Mpt;
             typedef Matrix<double, num_nodes, 1> VecterNN;
-            VecterNN _Bpp;
+            VecterNN _Bp;
 
             int n = n_integration_points;
             // Order matters: First T, then P!
@@ -232,18 +236,20 @@ thermal_conductivity_soil, thermal_conductivity_water);
             _Mtp.noalias() += sm.N.transpose() *(-beta*porosity*0)*sm.N *    // beta or -beta or phi*beta or phi*(-beta)
                                   sm.detJ * wp.getWeight();
         //    _Bpp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(_element.getDimension()-1)*g*density_water_T;
-            _Bpp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(1)*g*density_water_T;
+            _Bp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(1)*g*density_water_T;
             /* with Oberbeck-Boussing assumption density difference only exists in buoyancy effects */
 
-            _localK.block<num_nodes,num_nodes>(0,0).noalias() += _Ktt;
-            _localM.block<num_nodes,num_nodes>(0,0).noalias() += _Mtt;
-            _localK.block<num_nodes,num_nodes>(num_nodes,num_nodes).noalias() += _Kpp;
-            _localM.block<num_nodes,num_nodes>(num_nodes,num_nodes).noalias() += _Mpp;
-            _localK.block<num_nodes,num_nodes>(num_nodes,0).noalias() += _Ktp;
-            _localM.block<num_nodes,num_nodes>(num_nodes,0).noalias() += _Mtp;
-            _localK.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Kpt;
-            _localM.block<num_nodes,num_nodes>(0,num_nodes).noalias() += _Mpt;
-            _localRhs.block<num_nodes,1>(num_nodes,0).noalias() -= _Bpp  ;
+            local_K.template block<num_nodes, num_nodes>(0, 0).noalias() += _Ktt;
+            local_M.template block<num_nodes, num_nodes>(0, 0).noalias() += _Mtt;
+            local_K.template block<num_nodes, num_nodes>(num_nodes, num_nodes)
+                .noalias() += _Kpp;
+            local_M.template block<num_nodes, num_nodes>(num_nodes, num_nodes)
+                .noalias() += _Mpp;
+            local_K.template block<num_nodes, num_nodes>(num_nodes, 0).noalias() += _Ktp;
+            local_M.template block<num_nodes, num_nodes>(num_nodes, 0).noalias() += _Mtp;
+            local_K.template block<num_nodes, num_nodes>(0, num_nodes).noalias() += _Kpt;
+            local_M.template block<num_nodes, num_nodes>(0, num_nodes).noalias() += _Mpt;
+            local_b.template block<num_nodes, 1>(num_nodes, 0).noalias() -= _Bp;
             // heat flux only computed for output.
          /*   auto const heat_flux = (-thermal_conductivity * sm.dNdx *
                 Eigen::Map<const NodalVectorType>(&local_x[0], num_nodes)
@@ -253,15 +259,11 @@ thermal_conductivity_soil, thermal_conductivity_water);
                 _heat_fluxes[d][ip] = heat_flux[d];
         } */
            // velocity computed for output.
-            for (unsigned d = 0; d < GlobalDim; ++d){
+            for (unsigned d = 0; d < GlobalDim; ++d)
+            {
                 _darcy_velocities[d][ip] = velocity[d];
-        }
+            }
     }
-
-
-        K.add(indices, _localK);
-        M.add(indices, _localM);
-        b.add(indices.rows, _localRhs);
   }
 
     Eigen::Map<const Eigen::RowVectorXd>
@@ -272,27 +274,6 @@ thermal_conductivity_soil, thermal_conductivity_water);
        // assumes N is stored contiguously in memory
        return Eigen::Map<const Eigen::RowVectorXd>(N.data(), N.size());
     }
-
-//   std::vector<double> const&
-//   getIntPtHeatFluxX(std::vector<double>& /*cache*/) const override
-//   {
-//       assert(_heat_fluxes.size() > 0);
-//       return _heat_fluxes[0];
-//   }
-
-//   std::vector<double> const&
-//   getIntPtHeatFluxY(std::vector<double>& /*cache*/) const override
-//   {
-//       assert(_heat_fluxes.size() > 1);
-//       return _heat_fluxes[1];
-//   }
-
-//   std::vector<double> const&
-//   getIntPtHeatFluxZ(std::vector<double>& /*cache*/) const override
-//   {
-//       assert(_heat_fluxes.size() > 2);
-//       return _heat_fluxes[2];
- //  }
 
    std::vector<double> const&
    getIntPtDarcyVelocityX(std::vector<double>& /*cache*/) const override
@@ -319,10 +300,10 @@ private:
     MeshLib::Element const& _element;
     FreezingProcessData const& _process_data;
 
-    NodalMatrixType _localK;
+/*    NodalMatrixType _localK;
     NodalMatrixType _localM;
     NodalVectorType _localRhs;
-    NodalVectorType _gravity_v;
+    NodalVectorType _gravity_v; */
 
     //unsigned const _integration_order;
     IntegrationMethod const _integration_method;
@@ -330,10 +311,7 @@ private:
  //   std::vector<std::vector<double>> _heat_fluxes
   //          = std::vector<std::vector<double>>(
  //   GlobalDim, std::vector<double>(ShapeFunction::NPOINTS));
-    std::vector<std::vector<double>> _darcy_velocities
-            = std::vector<std::vector<double>>(
-    GlobalDim, std::vector<double>(ShapeFunction::NPOINTS));
-
+    std::vector<std::vector<double>> _darcy_velocities ;
 };
 
 

@@ -1,0 +1,59 @@
+include(${PROJECT_SOURCE_DIR}/scripts/cmake/OGSEnabledElements.cmake)
+
+# Source files
+APPEND_SOURCE_FILES(SOURCES)
+
+add_subdirectory(BoundaryCondition)
+APPEND_SOURCE_FILES(SOURCES BoundaryCondition)
+
+APPEND_SOURCE_FILES(SOURCES Deformation)
+
+add_subdirectory(Parameter)
+APPEND_SOURCE_FILES(SOURCES Parameter)
+
+add_subdirectory(GroundwaterFlow)
+APPEND_SOURCE_FILES(SOURCES GroundwaterFlow)
+
+APPEND_SOURCE_FILES(SOURCES LiquidFlow)
+
+APPEND_SOURCE_FILES(SOURCES SmallDeformation)
+
+APPEND_SOURCE_FILES(SOURCES SmallDeformationWithLIE)
+APPEND_SOURCE_FILES(SOURCES SmallDeformationWithLIE/BoundaryCondition)
+APPEND_SOURCE_FILES(SOURCES SmallDeformationWithLIE/Common)
+APPEND_SOURCE_FILES(SOURCES SmallDeformationWithLIE/LocalAssembler)
+
+APPEND_SOURCE_FILES(SOURCES TES)
+
+add_subdirectory(HeatConduction)
+APPEND_SOURCE_FILES(SOURCES HeatConduction)
+
+<<<<<<< fd4d362124b03aa54b707615bd8763469ebe725b
+APPEND_SOURCE_FILES(SOURCES RichardsFlow)
+
+add_subdirectory(CalculateSurfaceFlux)
+APPEND_SOURCE_FILES(SOURCES CalculateSurfaceFlux)
+=======
+add_subdirectory(Freezing)
+APPEND_SOURCE_FILES(SOURCES Freezing)
+>>>>>>> TH_Freezing with Benchmark from Wolfram 2015
+
+APPEND_SOURCE_FILES(SOURCES Utils)
+
+add_library(ProcessLib ${SOURCES})
+
+target_link_libraries(ProcessLib
+    MaterialLib
+    MeshGeoToolsLib
+    NumLib # for shape matrices
+    ${VTK_LIBRARIES}
+)
+
+ADD_VTK_DEPENDENCY(ProcessLib)
+
+if(TARGET Eigen)
+    add_dependencies(ProcessLib Eigen)
+endif()
+if(TARGET Boost)
+    add_dependencies(ProcessLib Boost)
+endif()
