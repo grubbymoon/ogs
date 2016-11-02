@@ -109,7 +109,7 @@ public:
                auto local_b = MathLib::createZeroedVector<NodalVectorType>(
                    local_b_data, local_matrix_size);
 
-        const double density_water = 1000.0 ;
+   /*     const double density_water = 1000.0 ;
         const double density_water_T = 1000.0 ;  // thermal expansion is ignored
         //  const double temperature0 = 20.0 ;   // reference temperature for thermal expansion
         const double beta = 4.3e-4 ;  // thermal expansion coefficient
@@ -138,7 +138,7 @@ public:
     //    typedef Matrix<double, 2, 1> Vecterg;
      //   Vecterg  _gravity_v;
      //   _gravity_v[0] = 0.;
-     //   _gravity_v[1] = 1.;
+     //   _gravity_v[1] = 1.;   */
 
 
       //  IntegrationMethod integration_method(_integration_order);
@@ -148,12 +148,51 @@ public:
         SpatialPosition pos;
         pos.setElementID(_element.getID());
 
+        auto const temperature0 =
+                    _process_data.reference_temperature(t, pos)[0];  // 20.0;
+        auto const beta =
+                    _process_data.thermal_expansion_coefficient(t, pos)[0];
+
+        auto const sigmoid_coefficient =
+                    _process_data.sigmoid_coefficient(t, pos)[0];
+
+        auto const latent_heat =
+                    _process_data.latent_heat(t, pos)[0];
+
+        auto const body_force = _process_data.specific_body_force(t, pos);
+        assert(body_force.size() == GlobalDim);
+        auto const b = MathLib::toVector<GlobalDimVectorType>(body_force, GlobalDim);
+
         double T_int_pt = 0.0;
         double p_int_pt = 0.0;
 
         for (unsigned ip(0); ip < n_integration_points; ip++)
         {
             pos.setIntegrationPoint(ip);
+            auto const density_fluid = _process_data.density_fluid(t, pos)[0];
+            auto const density_solid = _process_data.density_solid(t, pos)[0];
+            auto const density_ice = _process_data.density_ice(t, pos)[0];
+            auto const intrinsic_permeability =
+                _process_data.intrinsic_permeability(t, pos)[0];
+            auto const viscosity0 = _process_data.viscosity(t, pos)[0];  // 1e-3
+
+            auto const porosity = _process_data.porosity(t, pos)[0];
+            auto const compressibility = _process_data.compressibility(t, pos)[0];
+
+            auto const specific_heat_capacity_solid =
+                _process_data.specific_heat_capacity_solid(t, pos)[0];
+            auto const specific_heat_capacity_fluid =
+                _process_data.specific_heat_capacity_fluid(t, pos)[0];
+            auto const specific_heat_capacity_ice =
+                _process_data.specific_heat_capacity_ice(t, pos)[0];
+            auto const thermal_conductivity_solid =
+                _process_data.thermal_conductivity_solid(t, pos)[0];
+            auto const thermal_conductivity_fluid =
+                _process_data.thermal_conductivity_fluid(t, pos)[0];
+            auto const thermal_conductivity_ice =
+                _process_data.thermal_conductivity_ice(t, pos)[0];
+
+
             auto const num_nodes = ShapeFunction::NPOINTS; /* difference with n_integration_points?*/
             auto const& sm = _shape_matrices[ip];
             auto const& wp = _integration_method.getWeightedPoint(ip);
@@ -170,7 +209,7 @@ public:
             typedef Matrix<double, num_nodes, 1> VecterNN;
             VecterNN _Bp;
 
-            int n = n_integration_points;
+            // int n = n_integration_points;
             // Order matters: First T, then P!
             NumLib::shapeFunctionInterpolate(local_x, sm.N, T_int_pt, p_int_pt);
 
@@ -180,24 +219,24 @@ public:
           //  double density_water_T = density_water*(1 - beta*(T_int_pt - temperature0));
           //  std::cout << density_water_T << std::endl;
           //  double viscosity = Viscosity(viscosity0, T_int_pt, temperature_con, temperature0); // calculate the dynamic viscosity
-            double hydraulic_conductivity = permeability/viscosity ; // m/s permeability/viscosity
-            phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
+            double hydraulic_conductivity = intrinsic_permeability/viscosity0 ; // m/s permeability/viscosity
+            double phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coefficient, porosity);
 
           //  Real_hydraulic_conductivity = KozenyKarman(hydraulic_conductivity, porosity, phi_i);
           //    Real_hydraulic_conductivity = hydraulic_conductivity ;
             double Kr = Relative_permeability(phi_i, porosity);
-            Real_hydraulic_conductivity = Hydraulic_conductivity(permeability, Kr, viscosity);
-            sigmoid_derive = Calcsigmoidderive(sigmoid_coeff, porosity, T_int_pt);
-            specific_storage = (porosity -phi_i)*compressibility ;
+            double Real_hydraulic_conductivity = Hydraulic_conductivity(intrinsic_permeability, Kr, viscosity0);
+            double sigmoid_derive = Calcsigmoidderive(sigmoid_coefficient, porosity, T_int_pt);
+            double specific_storage = (porosity -phi_i)*compressibility ;
 
-            thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
-thermal_conductivity_soil, thermal_conductivity_water);
+            double thermal_conductivity = TotalThermalConductivity(porosity, phi_i, thermal_conductivity_ice,
+                   thermal_conductivity_solid, thermal_conductivity_fluid);
           //  thermal_conductivity = thermal_conductivity_soil*(1 - porosity)
            //         + thermal_conductivity_water*porosity; // mixed thermal conductivity
 
-            heat_capacity = EquaHeatCapacity(phi_i, density_water, density_soil, density_ice,
- specific_heat_capacity_soil, specific_heat_capacity_ice,
- specific_heat_capacity_water, porosity, sigmoid_derive, latent_heat);
+            double heat_capacity = EquaHeatCapacity(phi_i, density_fluid, density_solid, density_ice,
+                   specific_heat_capacity_solid, specific_heat_capacity_ice,
+                   specific_heat_capacity_fluid, porosity, sigmoid_derive, latent_heat);
 
            /* heat_capacity = density_soil*specific_heat_capacity_soil*(1 - porosity)
                     + density_water*specific_heat_capacity_water*porosity;*/  // mixed heat capacity
@@ -208,14 +247,15 @@ thermal_conductivity_soil, thermal_conductivity_water);
             auto velocity =  (-Real_hydraulic_conductivity*
                     sm.dNdx*p_nodal_values /*- g*_gravity_v*density_water_T*hydraulic_conductivity*/).eval();
 
-            velocity[1] -= density_water_T*g*Real_hydraulic_conductivity ;
+            if (_process_data.has_gravity)
+            velocity += density_fluid*Real_hydraulic_conductivity*b ;
             //std::cout << velocity << std::endl;
             auto detJ_w_NT_vT_dNdx =
                 (detJ_w_NT * velocity.transpose() * sm.dNdx).eval();
             // matrix assembly
             _Ktt.noalias() += sm.dNdx.transpose() *
                                   thermal_conductivity * sm.dNdx *
-                                  sm.detJ * wp.getWeight() + detJ_w_NT_vT_dNdx*density_water*specific_heat_capacity_water;
+                                  sm.detJ * wp.getWeight() + detJ_w_NT_vT_dNdx*density_fluid*specific_heat_capacity_fluid;
  /*sm.N*density_water*specific_heat_capacity_water*Real_hydraulic_conductivity*
             (sm.dNdx*p_nodal_values).transpose()*sm.dNdx*sm.detJ*wp.getWeight(); */
             _Kpp.noalias() += sm.dNdx.transpose() *
@@ -236,7 +276,8 @@ thermal_conductivity_soil, thermal_conductivity_water);
             _Mtp.noalias() += sm.N.transpose() *(-beta*porosity*0)*sm.N *    // beta or -beta or phi*beta or phi*(-beta)
                                   sm.detJ * wp.getWeight();
         //    _Bpp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(_element.getDimension()-1)*g*density_water_T;
-            _Bp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(1)*g*density_water_T;
+            if (_process_data.has_gravity)
+            _Bp.noalias() += hydraulic_conductivity* sm.detJ * wp.getWeight()*sm.dNdx.transpose().col(1)*b*density_fluid;
             /* with Oberbeck-Boussing assumption density difference only exists in buoyancy effects */
 
             local_K.template block<num_nodes, num_nodes>(0, 0).noalias() += _Ktt;

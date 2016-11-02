@@ -51,12 +51,12 @@ double thermal_conductivity_soil, double thermal_conductivity_water)
    return thermal_conductivity;
 }
 
-static double KozenyKarman(double hydraulic_conductiviy, double porosity, double phi_i)
+/*static double KozenyKarman(double hydraulic_conductiviy, double porosity, double phi_i)
 {
     double real_hydraulic_conductivity;
     real_hydraulic_conductivity = hydraulic_conductiviy* pow((porosity-phi_i)/porosity, 3)* pow((1-porosity)/(1+phi_i-porosity), 3);
     return real_hydraulic_conductivity;
-}
+}*/
 
 
 static double Relative_permeability(double phi_i, double porosity)
