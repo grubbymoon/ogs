@@ -381,6 +381,18 @@ if(NOT OGS_USE_MPI)
          DIFF_DATA
          temperature_analytical.vtu square_1e3_pcs_0_ts_4_t_4000.000000.vtu temperature_analytical temperature
    )
+   AddTest(
+         NAME LARGE_Freezing_TH
+         PATH Freezing_TH
+         EXECUTABLE ogs
+         EXECUTABLE_ARGS quad_3x1.prj
+         TESTER vtkdiff
+         ABSTOL 1e-12 RELTOL 1e-12
+         DIFF_DATA
+         expected_TH_Freezing_ts_20_t_1000.vtu square_1e3_pcs_0_ts_20_t_1000.000000.vtu temperature temperature
+         expected_TH_Freezing_ts_20_t_1000.vtu square_1e3_pcs_0_ts_20_t_1000.000000.vtu pressure pressure
+)
+
     # Mechanics; Small deformations, linear (SDL)
     AddTest(
         NAME Mechanics_SDL_square_1e0_displacementBC
