@@ -86,7 +86,6 @@ SmallDeformationLocalAssemblerMatrix<ShapeFunction, IntegrationMethod,
             KelvinVectorDimensions<DisplacementDim>::value);
         ip_data._C.resize(KelvinVectorDimensions<DisplacementDim>::value,
                           KelvinVectorDimensions<DisplacementDim>::value);
-
         _secondary_data.N[ip] = sm.N;
     }
 }

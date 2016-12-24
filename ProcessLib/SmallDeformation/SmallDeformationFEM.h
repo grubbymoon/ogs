@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 
+#include "MaterialLib/SolidModels/FreezingLinearElasticIsotropic.h"
 #include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
 #include "MaterialLib/SolidModels/Lubby2.h"
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
@@ -51,6 +52,8 @@ struct IntegrationPointData final
           _solid_material(other._solid_material),
           _material_state_variables(std::move(other._material_state_variables)),
           _C(std::move(other._C)),
+          _C_ice(std::move(other._C_ice)),
+          _C_solid(std::move(other._C_solid)),
           _detJ(std::move(other._detJ)),
           _integralMeasure(other._integralMeasure)
     {
@@ -67,6 +70,8 @@ struct IntegrationPointData final
         _material_state_variables;
 
     typename BMatricesType::KelvinMatrixType _C;
+    typename BMatricesType::KelvinMatrixType _C_ice;
+    typename BMatricesType::KelvinMatrixType _C_solid;
     double _detJ;
     double _integralMeasure;
 
@@ -186,6 +191,10 @@ public:
                 KelvinVectorDimensions<DisplacementDim>::value);
             ip_data._C.resize(KelvinVectorDimensions<DisplacementDim>::value,
                               KelvinVectorDimensions<DisplacementDim>::value);
+            ip_data._C_ice.resize(KelvinVectorDimensions<DisplacementDim>::value,
+                              KelvinVectorDimensions<DisplacementDim>::value);
+            ip_data._C_solid.resize(KelvinVectorDimensions<DisplacementDim>::value,
+                              KelvinVectorDimensions<DisplacementDim>::value);
 
             _secondary_data.N[ip] = shape_matrices[ip].N;
         }
@@ -238,6 +247,8 @@ public:
             auto& eps = _ip_data[ip]._eps;
             auto& sigma = _ip_data[ip]._sigma;
             auto& C = _ip_data[ip]._C;
+            auto& C_ice = _ip_data[ip]._C_ice;
+            auto& C_solid = _ip_data[ip]._C_solid;
             auto& material_state_variables =
                 *_ip_data[ip]._material_state_variables;
 

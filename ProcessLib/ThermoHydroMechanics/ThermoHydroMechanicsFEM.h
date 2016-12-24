@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "MaterialLib/SolidModels/KelvinVector.h"
-#include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
+#include "MaterialLib/SolidModels/FreezingLinearElasticIsotropic.h"
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
 #include "NumLib/Extrapolation/ExtrapolatableElement.h"
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
@@ -40,7 +40,7 @@ template <typename BMatricesType, typename ShapeMatrixTypeDisplacement,
 struct IntegrationPointData final
 {
     explicit IntegrationPointData(
-        MaterialLib::Solids::MechanicsBase<DisplacementDim>& solid_material)
+        MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>& solid_material)
         : _solid_material(solid_material),
           _material_state_variables(
               _solid_material.createMaterialStateVariables())
@@ -58,6 +58,8 @@ struct IntegrationPointData final
           _eps_prev(std::move(other._eps_prev)),
           _solid_material(other._solid_material),
           _material_state_variables(std::move(other._material_state_variables)),
+          _C_solid(std::move(other._C_solid)),
+          _C_ice(std::move(other._C_ice)),
           _C(std::move(other._C)),
           integration_weight(std::move(other.integration_weight))
     {
@@ -72,14 +74,16 @@ struct IntegrationPointData final
     typename ShapeMatricesTypePressure::NodalRowVectorType _N_p;
     typename ShapeMatricesTypePressure::GlobalDimNodalMatrixType _dNdx_p;
 
-    MaterialLib::Solids::MechanicsBase<DisplacementDim>& _solid_material;
-    std::unique_ptr<typename MaterialLib::Solids::MechanicsBase<
+    MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>& _solid_material;
+    std::unique_ptr<typename MaterialLib::Solids::MechanicsFreezingBase<
         DisplacementDim>::MaterialStateVariables>
         _material_state_variables;
 
     typename BMatricesType::KelvinMatrixType _C;
+    typename BMatricesType::KelvinMatrixType _C_solid;
+    typename BMatricesType::KelvinMatrixType _C_ice;
     double integration_weight;
-
+    double phi_i = 0.5 ;
     void pushBackState()
     {
         _eps_prev = _eps;
@@ -94,8 +98,8 @@ struct IntegrationPointData final
                                     DisplacementVectorType const& u)
     {
         _eps.noalias() = _b_matrices * u;
-        _solid_material.computeConstitutiveRelation(
-            t, x_position, dt, _eps_prev, _eps, _sigma_prev, _sigma, _C,
+        _solid_material.computeFreezingConstitutiveRelation(
+            t, x_position, dt, _eps_prev, _eps, _sigma_prev, _sigma, _C_solid, _C_ice ,_C, phi_i,
             *_material_state_variables);
     }
 };
@@ -189,7 +193,8 @@ public:
             ip_data._eps.resize(kelvin_vector_size);
             ip_data._eps_prev.resize(kelvin_vector_size);
             ip_data._C.resize(kelvin_vector_size, kelvin_vector_size);
-
+            ip_data._C_ice.resize(kelvin_vector_size, kelvin_vector_size);
+            ip_data._C_solid.resize(kelvin_vector_size, kelvin_vector_size);
             ip_data._N_u = shape_matrices_u[ip].N;
             ip_data._N_p = shape_matrices_p[ip].N;
             ip_data._dNdx_p = shape_matrices_p[ip].dNdx;
