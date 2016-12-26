@@ -27,6 +27,7 @@
 #include "ProcessLib/LocalAssemblerTraits.h"
 #include "ProcessLib/Parameter/Parameter.h"
 #include "ProcessLib/Utils/InitShapeMatrices.h"
+#include "FreezingMaterialModel.h"
 
 #include "ThermoHydroMechanicsProcessData.h"
 #include "LowerDimShapeTable.h"
@@ -35,6 +36,7 @@ namespace ProcessLib
 {
 namespace ThermoHydroMechanics
 {
+
 template <typename BMatricesType, typename ShapeMatrixTypeDisplacement,
           typename ShapeMatricesTypePressure, int DisplacementDim>
 struct IntegrationPointData final
@@ -83,7 +85,6 @@ struct IntegrationPointData final
     typename BMatricesType::KelvinMatrixType _C_solid;
     typename BMatricesType::KelvinMatrixType _C_ice;
     double integration_weight;
-    double phi_i = 0.5 ;
     void pushBackState()
     {
         _eps_prev = _eps;
@@ -95,7 +96,8 @@ struct IntegrationPointData final
     void updateConstitutiveRelation(double const t,
                                     SpatialPosition const& x_position,
                                     double const dt,
-                                    DisplacementVectorType const& u)
+                                    DisplacementVectorType const& u,
+                                    double phi_i)
     {
         _eps.noalias() = _b_matrices * u;
         _solid_material.computeFreezingConstitutiveRelation(
@@ -336,6 +338,16 @@ public:
             auto const b =
                 Eigen::Map<typename ShapeMatricesType::template VectorType<
                     DisplacementDim> const>(body_force.data(), DisplacementDim);
+            auto const rho_ir = 900.0 ;
+            auto const C_i = 2060 ;
+            auto const lambda_i = 2.14;
+            auto phi_i = 0.0;
+            auto const sigmoid_coeff = 5.0;
+            auto const latent_heat = 334000;
+            auto sigmoid_derive = 0.0;
+            double lambda = 0.0 ;
+            double heat_capacity = 0.0 ;
+
 
             // get the element values for T and p
             double T_int_pt = 0.0 ;
@@ -352,6 +364,14 @@ public:
             double delta_T(T_int_pt - T0);
             rho_fr = rho_fr*(1 - beta_f * delta_T);
             rho_sr = rho_sr*(1 - beta_s * delta_T);
+
+            // Freezing process
+            phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
+            // Permeability change due to freezing is not considered in order to compare with analytical solution
+            sigmoid_derive = Calcsigmoidderive(sigmoid_coeff, porosity, T_int_pt);
+            lambda = (porosity - phi_i) * lambda_f + (1 - porosity) * lambda_s + phi_i * lambda_i;
+            heat_capacity = EquaHeatCapacity(phi_i, rho_fr, rho_sr, rho_ir,
+                                             C_s, C_i, C_f, porosity, sigmoid_derive, latent_heat);
 
       /*      auto p_nodal_values = Eigen::Map<const Eigen::VectorXd>(
             &local_x[num_nodes], num_nodes);   */
@@ -370,7 +390,7 @@ public:
             //
             // displacement equation, displacement part (K_uu)
             //
-            _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u);
+            _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u, phi_i);
 
             local_Jac
                 .template block<displacement_size, displacement_size>(
@@ -433,11 +453,9 @@ public:
             //
             // temperature equation, temperature part.
             //
-            double lambda = porosity * lambda_f + (1 - porosity) * lambda_s ;
             KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + dNdx_T.transpose() * velocity * N_p * rho_fr * C_f ) * w ;
             // coeff matrix using for RHS
             KTT_coeff.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* w ;
-            double heat_capacity = porosity * C_f * rho_fr + (1 - porosity) * C_s * rho_sr;
             MTT.noalias() += N_T.transpose() * heat_capacity * N_T * w;
 
             //
