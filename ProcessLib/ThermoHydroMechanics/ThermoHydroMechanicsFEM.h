@@ -314,13 +314,13 @@ public:
             double const K_over_mu =
                 _process_data.intrinsic_permeability(t, x_position)[0] /
                 _process_data.fluid_viscosity(t, x_position)[0];
-            auto const beta_s = 4.2e-5 ;
-            auto const beta_f = 2.07e-4 ;
-            auto const lambda_f = 0.56e-3 ;
-            auto const lambda_s = 2.5e-3 ;
-            auto const C_f = 4186.0 ;
-            auto const C_s = 1714.0 ;
-            auto const T0 = 0 ;
+            double const beta_s = _process_data.beta_solid(t, x_position)[0];
+            double const beta_f = _process_data.beta_fluid(t, x_position)[0];
+            double const lambda_f = _process_data.lambda_f(t, x_position)[0];
+            double const lambda_s = _process_data.lambda_s(t, x_position)[0];
+            double const C_f = _process_data.fluid_heat_capacity(t, x_position)[0];
+            double const C_s = _process_data.solid_heat_capacity(t, x_position)[0];
+            double const T0 = _process_data.reference_temperature(t, x_position)[0];
             auto const alpha = _process_data.biot_coefficient(t, x_position)[0];
             auto rho_sr = _process_data.solid_density(t, x_position)[0];
             auto rho_fr = _process_data.fluid_density(t, x_position)[0];
@@ -454,7 +454,7 @@ public:
         local_Jac
             .template block<temperature_size, pressure_size>(
                 temperature_index, pressure_index)
-            .noalias() -= KTp_coeff *0 ;
+            .noalias() -= KTp_coeff ;
         // displacement equation, temperature part
         local_Jac
             .template block<displacement_size, temperature_size>(

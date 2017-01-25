@@ -32,6 +32,13 @@ struct ThermoHydroMechanicsProcessData
         Parameter<double> const& porosity_,
         Parameter<double> const& solid_density_,
         Parameter<double> const& fluid_density_,
+        Parameter<double> const& beta_solid_,
+        Parameter<double> const& beta_fluid_,
+        Parameter<double> const& fluid_heat_capacity_,
+        Parameter<double> const& solid_heat_capacity_,
+        Parameter<double> const& lambda_s_,
+        Parameter<double> const& lambda_f_,
+        Parameter<double> const& reference_temperature_,
         Parameter<double> const& specific_body_force_)
         : material{std::move(material_)},
           intrinsic_permeability(intrinsic_permeability_),
@@ -41,6 +48,13 @@ struct ThermoHydroMechanicsProcessData
           porosity(porosity_),
           solid_density(solid_density_),
           fluid_density(fluid_density_),
+          beta_solid(beta_solid_),
+          beta_fluid(beta_fluid_),
+          fluid_heat_capacity(fluid_heat_capacity_),
+          solid_heat_capacity(solid_heat_capacity_),
+          lambda_s(lambda_s_),
+          lambda_f(lambda_f_),
+          reference_temperature(reference_temperature_),
           specific_body_force(specific_body_force_)
     {
     }
@@ -54,6 +68,13 @@ struct ThermoHydroMechanicsProcessData
           porosity(other.porosity),
           solid_density(other.solid_density),
           fluid_density(other.fluid_density),
+          beta_solid(other.beta_solid),
+          beta_fluid(other.beta_fluid),
+          fluid_heat_capacity(other.fluid_heat_capacity),
+          solid_heat_capacity(other.solid_heat_capacity),
+          lambda_s(other.lambda_s),
+          lambda_f(other.lambda_f),
+          reference_temperature(other.reference_temperature),
           specific_body_force(other.specific_body_force),
           dt(other.dt),
           t(other.t)
@@ -78,6 +99,13 @@ struct ThermoHydroMechanicsProcessData
     Parameter<double> const& porosity;
     Parameter<double> const& solid_density;
     Parameter<double> const& fluid_density;
+    Parameter<double> const& beta_solid;
+    Parameter<double> const& beta_fluid;
+    Parameter<double> const& fluid_heat_capacity;
+    Parameter<double> const& solid_heat_capacity;
+    Parameter<double> const& lambda_s;
+    Parameter<double> const& lambda_f;
+    Parameter<double> const& reference_temperature;
     Parameter<double> const& specific_body_force;
     double dt;
     double t;

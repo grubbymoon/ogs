@@ -166,13 +166,76 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
          solid_density.name.c_str());
 
     // Fluid density
-    auto& fluid_density = findParameter<double>(
+    auto const& fluid_density = findParameter<double>(
         config,
         //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_fluid_density}
         "fluid_density",
         parameters, 1);
     DBUG("Use \'%s\' as fluid density parameter.",
          fluid_density.name.c_str());
+
+    // thermal expansion coefficient for solid
+    auto const& beta_solid = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_solid_thermal_expansion_coefficient}
+        "beta_solid",
+        parameters, 1);
+    DBUG("Use \'%s\' as solid thermal expansion coefficient parameter.",
+         beta_solid.name.c_str());
+
+    // thermal expansion coefficient for fluid
+    auto& beta_fluid = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_fluid_thermal_expansion_coefficient}
+        "beta_fluid",
+        parameters, 1);
+    DBUG("Use \'%s\' as fluid thermal expansion coefficient parameter.",
+         beta_fluid.name.c_str());
+
+    // specific heat capacity for fluid
+    auto& fluid_heat_capacity = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_fluid_heat_capacity}
+        "fluid_heat_capacity",
+        parameters, 1);
+    DBUG("Use \'%s\' as fluid heat capacity parameter.",
+         fluid_heat_capacity.name.c_str());
+
+    // specific heat capacity for solid
+    auto& solid_heat_capacity = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_solid_heat_capacity}
+        "solid_heat_capacity",
+        parameters, 1);
+    DBUG("Use \'%s\' as solid heat capacity parameter.",
+         solid_heat_capacity.name.c_str());
+
+    // thermal conductivity for solid
+    auto& lambda_s = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_solid_thermal_conductivity}
+        "lambda_s",
+        parameters, 1);
+    DBUG("Use \'%s\' as solid thermal conductivity parameter.",
+         lambda_s.name.c_str());
+
+    // thermal conductivity for fluid
+    auto& lambda_f = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_fluid_thermal_conductivity}
+        "lambda_f",
+        parameters, 1);
+    DBUG("Use \'%s\' as fluid thermal conductivity parameter.",
+         lambda_f.name.c_str());
+
+    // reference temperature
+    auto& reference_temperature = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_reference_temperature}
+        "reference_temperature",
+        parameters, 1);
+    DBUG("Use \'%s\' as reference temperature parameter.",
+         reference_temperature.name.c_str());
 
     // Specific body force
     auto& specific_body_force = findParameter<double>(
@@ -186,7 +249,11 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
     ThermoHydroMechanicsProcessData<DisplacementDim> process_data{
         std::move(material), intrinsic_permeability, storage_coefficient,
         fluid_viscosity,     biot_coefficient,       porosity,
-        solid_density,       fluid_density,          specific_body_force};
+        solid_density,       fluid_density,          beta_solid,
+        beta_fluid,          fluid_heat_capacity,    solid_heat_capacity,
+        lambda_s,            lambda_f,            reference_temperature,
+        specific_body_force
+    };
 
     SecondaryVariableCollection secondary_variables;
 
