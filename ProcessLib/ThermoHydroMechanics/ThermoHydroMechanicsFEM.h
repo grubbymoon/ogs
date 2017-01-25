@@ -253,8 +253,16 @@ public:
             displacement_size> const>(local_xdot.data() + displacement_index,
                                       displacement_size);
 
+        // Jacobian matrix of Kuu
         auto local_Jac = MathLib::createZeroedMatrix<StiffnessMatrixType>(
             local_Jac_data, local_matrix_size, local_matrix_size);
+
+        // coeff matrix is also necessary
+        auto local_M = MathLib::createZeroedMatrix<NodalMatrixType>(
+            local_M_data, local_matrix_size, local_matrix_size);
+
+        auto local_K = MathLib::createZeroedMatrix<NodalMatrixType>(
+            local_K_data, local_matrix_size, local_matrix_size);
 
         auto local_rhs =
             MathLib::createZeroedVector<NodalDisplacementVectorType>(
@@ -315,6 +323,8 @@ public:
             auto const& sigma = _ip_data[ip]._sigma;
 
             auto const& C = _ip_data[ip]._C;
+            auto const& C_ice = _ip_data[ip]._C_ice;
+            auto const& C_solid = _ip_data[ip]._C_solid;
 
             double const S =
                 _process_data.storage_coefficient(t, x_position)[0];
@@ -372,6 +382,9 @@ public:
             lambda = (porosity - phi_i) * lambda_f + (1 - porosity) * lambda_s + phi_i * lambda_i;
             heat_capacity = EquaHeatCapacity(phi_i, rho_fr, rho_sr, rho_ir,
                                              C_s, C_i, C_f, porosity, sigmoid_derive, latent_heat);
+            double dRhoI_dT = porosity*rho_ir*sigmoid_derive ;
+            double freezing_volume = dRhoI_dT*(1/rho_fr - 1/rho_ir) ;
+
 
       /*      auto p_nodal_values = Eigen::Map<const Eigen::VectorXd>(
             &local_x[num_nodes], num_nodes);   */
@@ -408,6 +421,7 @@ public:
                        i, i * displacement_size / DisplacementDim)
                     .noalias() = _ip_data[ip]._N_u;
 
+            // Coeff_uu is already included
             double const rho = rho_sr * (1 - porosity) + porosity * rho_fr;
             local_rhs
                 .template block<displacement_size, 1>(displacement_index, 0)
@@ -477,7 +491,7 @@ public:
         local_Jac
             .template block<temperature_size, pressure_size>(
                 temperature_index, pressure_index)
-            .noalias() -= KTp_coeff *0 ;
+            .noalias() -= KTp_coeff ;
         // displacement equation, temperature part
         local_Jac
             .template block<displacement_size, temperature_size>(

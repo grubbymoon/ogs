@@ -109,7 +109,7 @@ public:
         KelvinMatrix& C_solid,
         KelvinMatrix& C_ice,
         KelvinMatrix& C,
-        double phi_i,
+        double const phi_i,
         typename MechanicsFreezingBase<DisplacementDim>::MaterialStateVariables&
         /*material_state_variables*/) override
     {
@@ -124,7 +124,7 @@ public:
         C_ice.template topLeftCorner<3, 3>().setConstant(_mp.lambda_ice(t, x));
         C_ice.noalias() += 2 * _mp.mu_ice(t, x) * KelvinMatrix::Identity();
 
-        C = phi_i*C_ice + (1-phi_i)*C_solid;
+        C = phi_i*C_ice + C_solid;
         sigma.noalias() = sigma_prev + C * (eps - eps_prev);
         return true;
     }
