@@ -429,17 +429,17 @@ public:
             // temperature equation, temperature part.
             //
             double lambda = porosity * lambda_f + (1 - porosity) * lambda_s ;
-            KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + dNdx_T.transpose() * velocity * N_p * rho_fr * C_f ) * w ;
+            //KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + dNdx_T.transpose() * velocity * N_p * rho_fr * C_f ) * w ;
             // coeff matrix using for RHS
-            KTT_coeff.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* w ;
+            KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f)* w ;
             double heat_capacity = porosity * C_f * rho_fr + (1 - porosity) * C_s * rho_sr;
             MTT.noalias() += N_T.transpose() * heat_capacity * N_T * w;
 
             //
             // temperature equation, pressure part !!!!!!.positive or negative
             //
-            KTp.noalias() +=  K_over_mu * rho_fr * C_f * dNdx_p.transpose() * (dNdx_T * T) * N_T * w ;
-            KTp_coeff.noalias() +=  K_over_mu * rho_fr * C_f * N_T.transpose() * (dNdx_T * T).transpose() * dNdx_T * w ;
+           // KTp.noalias() +=  K_over_mu * rho_fr * C_f * dNdx_p.transpose() * (dNdx_T * T) * N_T * w ;
+            KTp.noalias() +=  K_over_mu * rho_fr * C_f * N_T.transpose() * (dNdx_T * T).transpose() * dNdx_T * w ;
           //  KTp.noalias() +=  N_T.transpose() * heat_capacity * N_T * w;
 
 
@@ -448,13 +448,13 @@ public:
         local_Jac
             .template block<temperature_size, temperature_size>(
                 temperature_index, temperature_index)
-            .noalias() += KTT_coeff + MTT / dt ;
+            .noalias() += KTT + MTT / dt ;
 
         // temperature equation, pressure part
         local_Jac
             .template block<temperature_size, pressure_size>(
                 temperature_index, pressure_index)
-            .noalias() -= KTp_coeff *0 ;
+            .noalias() -= KTp ;
         // displacement equation, temperature part
         local_Jac
             .template block<displacement_size, temperature_size>(
@@ -497,7 +497,7 @@ public:
 
         // temperature equation (f_T)
         local_rhs.template block<temperature_size, 1>(temperature_index, 0)
-            .noalias() -= KTT_coeff * T + MTT * T_dot;
+            .noalias() -= KTT * T + MTT * T_dot;
 
     }
 
