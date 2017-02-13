@@ -28,6 +28,18 @@ static double Calcsigmoidderive(double freezing_sigmoid_coeff, double porosity, 
   return sigmoid_derive;
 }
 
+// second derivative the negative symbol is cancelled out
+static double Calcsigmoidsecondderive(double freezing_sigmoid_coeff, double porosity, double T_in_dC)
+{
+  double sigmoid_derive = 0.0;
+  double logistic = 1.0 / (1.0 + exp(-1.0 * freezing_sigmoid_coeff * T_in_dC));
+
+  sigmoid_derive = porosity* freezing_sigmoid_coeff * freezing_sigmoid_coeff*
+          (1 - logistic) * logistic *(1 - 2*logistic);
+
+  return sigmoid_derive;
+}
+
 static double EquaHeatCapacity(double phi_i, double density_w, double density_s, double density_i,
 double specific_heat_capacity_soil, double specific_heat_capacity_ice, double specific_heat_capacity_water,
 double porosity, double sigmoid_derive, double latent_heat)
