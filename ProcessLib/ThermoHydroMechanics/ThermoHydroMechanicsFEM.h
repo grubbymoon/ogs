@@ -390,8 +390,9 @@ public:
                 (B.transpose() * sigma - N_u.transpose() * rho * b) * w;
             local_rhs  // cancelling out the reference temperature
                 .template block<displacement_size, 1>(displacement_index, 0)
-                .noalias() +=
-                B.transpose()* (identity2 * beta_s/3 * T0) ;
+                .noalias() -=
+            //    B.transpose()* (identity2 * beta_s/3 * T0) ;
+                 B.transpose() * C * identity2 * (beta_s/3) * T0 * w ;
 
             //
             // displacement equation, temperature part (K_uT)
