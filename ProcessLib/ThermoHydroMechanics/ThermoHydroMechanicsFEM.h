@@ -484,7 +484,7 @@ public:
         local_Jac
             .template block<temperature_size, pressure_size>(
                 temperature_index, pressure_index)
-            .noalias() -= KTp_coeff ;
+            .noalias() -= KTp_coeff*0 ;
         // displacement equation, temperature part
         local_Jac
             .template block<displacement_size, temperature_size>(

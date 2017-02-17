@@ -97,7 +97,7 @@ void constructDofTable() override
                                                           LocalAssemblerData>(
             mesh.getDimension(), mesh.getElements(), dof_table,
             // use displacment process variable for shapefunction order
-            getProcessVariables()[1].get().getShapeFunctionOrder(),
+            getProcessVariables()[2].get().getShapeFunctionOrder(),
             _local_assemblers, mesh.isAxiallySymmetric(), integration_order,
             _process_data);
     }
