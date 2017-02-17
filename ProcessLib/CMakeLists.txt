@@ -19,6 +19,9 @@ APPEND_SOURCE_FILES(SOURCES LiquidFlow)
 add_subdirectory(HydroMechanics)
 APPEND_SOURCE_FILES(SOURCES HydroMechanics)
 
+add_subdirectory(ThermoHydroMechanics)
+APPEND_SOURCE_FILES(SOURCES ThermoHydroMechanics)
+
 add_subdirectory(TwoPhaseFlowWithPP)
 APPEND_SOURCE_FILES(SOURCES TwoPhaseFlowWithPP)
 add_subdirectory(TwoPhaseFlowWithPrho)
