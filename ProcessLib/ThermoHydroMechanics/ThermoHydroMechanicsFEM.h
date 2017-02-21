@@ -178,8 +178,9 @@ public:
             // displacement (subscript u)
             _ip_data.emplace_back(*_process_data.material);
             auto& ip_data = _ip_data[ip];
+            auto const& sm = shape_matrices_u[ip];
             _ip_data[ip].integration_weight =
-                _integration_method.getWeightedPoint(ip).getWeight() *
+                _integration_method.getWeightedPoint(ip).getWeight() * sm.integralMeasure *
                 shape_matrices_u[ip].detJ;
             ip_data.b_matrices.resize(
                 kelvin_vector_size,
@@ -363,17 +364,17 @@ public:
          //           DisplacementDim> const>(body_force.data(), DisplacementDim);
 
             // get the element values for T and p
-            double T_int_pt = 0.0 ;
-            double p_int_pt = 0.0 ;
-            auto const num_nodes = 4;  // only for quad, need to change for Shapefunction::NPOINTS
+         //   auto T_int_pt = 0.0 ;
+        //    double p_int_pt = 0.0 ;
+        //    auto const num_nodes = 4;  // only for quad, need to change for Shapefunction::NPOINTS
             // order matters First T then P
         //    double const * const ptr = local_x[0] ;
         //    Eigen::Map<Eigen::VectorXd> local_Tp(ptr,num_nodes*2) ;
-            std::vector<double>::const_iterator first = local_x.begin() ;
-            std::vector<double>::const_iterator last = local_x.begin() + num_nodes*2;
-            std::vector<double> local_Tp(first, last);
-            NumLib::shapeFunctionInterpolate(local_Tp, N_p, T_int_pt, p_int_pt);
-
+        //    std::vector<double>::const_iterator first = local_x.begin() ;
+        //    std::vector<double>::const_iterator last = local_x.begin() + num_nodes*2;
+        //    std::vector<double> local_Tp(first, last);
+        //    NumLib::shapeFunctionInterpolate(local_Tp, N_p, T_int_pt, p_int_pt);
+          auto T_int_pt = N_T * T ;
             double delta_T(T_int_pt - T0);
             rho_fr = rho_fr*(1 - beta_f * delta_T);
             rho_sr = rho_sr*(1 - beta_s * delta_T);
@@ -419,7 +420,7 @@ public:
                 (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w;
             local_rhs  // cancelling out the reference temperature
                 .template segment<displacement_size>(displacement_index)
-                .noalias() +=
+                .noalias() -=
             //    B.transpose()* (identity2 * beta_s/3 * T0) ;
                  B.transpose() * C * identity2 * (beta_s/3) * T0 * w ;
 
@@ -448,7 +449,7 @@ public:
             //
             // pressure equation, temperature part (M_pT)
             //
-            storage_T.noalias() += N_p.transpose() * beta * N_p ;
+            storage_T.noalias() += N_p.transpose() * beta * N_p * w ;
 
             //
             // pressure equation, displacement part.  (M_pu)
@@ -459,7 +460,7 @@ public:
             // temperature equation, temperature part.
             //
             double lambda = porosity * lambda_f + (1 - porosity) * lambda_s ;
-            KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + dNdx_T.transpose() * velocity * N_p * rho_fr * C_f ) * w ;
+            KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + dNdx_T.transpose() * velocity * N_p * rho_fr * C_f * 0) * w ;
             // coeff matrix using for RHS
             KTT_coeff.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* w ;
             double heat_capacity = porosity * C_f * rho_fr + (1 - porosity) * C_s * rho_sr;
@@ -478,13 +479,13 @@ public:
         local_Jac
             .template block<temperature_size, temperature_size>(
                 temperature_index, temperature_index)
-            .noalias() += KTT_coeff + MTT / dt ;
+            .noalias() += KTT + MTT / dt ;
 
         // temperature equation, pressure part
         local_Jac
             .template block<temperature_size, pressure_size>(
                 temperature_index, pressure_index)
-            .noalias() -= KTp_coeff*0 ;
+            .noalias() -= KTp_coeff ;
         // displacement equation, temperature part
         local_Jac
             .template block<displacement_size, temperature_size>(
@@ -527,7 +528,7 @@ public:
 
         // temperature equation (f_T)
         local_rhs.template segment<temperature_size>(temperature_index)
-            .noalias() -= KTT_coeff * T + MTT * T_dot;
+            .noalias() -= KTT * T + MTT * T_dot;
 
     }
 
