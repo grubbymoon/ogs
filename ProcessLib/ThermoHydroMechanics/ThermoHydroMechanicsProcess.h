@@ -14,9 +14,10 @@
 #include "MeshLib/Elements/Utils.h"
 #include "ProcessLib/Process.h"
 #include "ProcessLib/ThermoHydroMechanics/CreateLocalAssemblers.h"
-
+#include "ProcessLib/Utils/CreateLocalAssemblers.h"
 #include "ThermoHydroMechanicsFEM.h"
 #include "ThermoHydroMechanicsProcessData.h"
+#include "NumLib/Extrapolation/LocalLinearLeastSquaresExtrapolator.h"
 
 namespace ProcessLib
 {
@@ -88,6 +89,9 @@ void constructDofTable() override
     //std::cout << *_local_to_global_index_map << "\n";
 
 }
+
+    using LocalAssemblerInterface = ThermoHydroMechanicsLocalAssemblerInterface;
+
     void initializeConcreteProcess(
         NumLib::LocalToGlobalIndexMap const& dof_table,
         MeshLib::Mesh const& mesh,
@@ -100,6 +104,28 @@ void constructDofTable() override
             getProcessVariables()[2].get().getShapeFunctionOrder(),
             _local_assemblers, mesh.isAxiallySymmetric(), integration_order,
             _process_data);
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "darcy_velocity_x", 1,
+            makeExtrapolator(getExtrapolator(), _local_assemblers,
+                             &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityX)) ;
+
+        if (mesh.getDimension() > 1)
+        {
+           Base::_secondary_variables.addSecondaryVariable(
+                "darcy_velocity_y", 1,
+                makeExtrapolator(
+                    getExtrapolator(), _local_assemblers,
+                    &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityY));
+        }
+        if (mesh.getDimension() > 2)
+        {
+          Base::_secondary_variables.addSecondaryVariable(
+                "darcy_velocity_z", 1,
+                makeExtrapolator(
+                    getExtrapolator(), _local_assemblers,
+                    &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityZ));
+        }
     }
 
     void assembleConcreteProcess(const double t, GlobalVector const& x,
@@ -141,7 +167,7 @@ void constructDofTable() override
         _process_data.t = t;
 
         GlobalExecutor::executeMemberOnDereferenced(
-            &LocalAssemblerInterface::preTimestep, _local_assemblers,
+            &ThermoHydroMechanicsLocalAssemblerInterface::preTimestep, _local_assemblers,
             *_local_to_global_index_map, x, t, dt);
     }
 
@@ -150,7 +176,7 @@ void constructDofTable() override
         DBUG("PostTimestep ThermoHydroMechanicsProcess.");
 
         GlobalExecutor::executeMemberOnDereferenced(
-            &LocalAssemblerInterface::postTimestep, _local_assemblers,
+            &ThermoHydroMechanicsLocalAssemblerInterface::postTimestep, _local_assemblers,
             *_local_to_global_index_map, x);
     }
 
@@ -159,7 +185,8 @@ private:
     std::unique_ptr<MeshLib::MeshSubset const> _mesh_subset_base_nodes;
     ThermoHydroMechanicsProcessData<DisplacementDim> _process_data;
 
-    std::vector<std::unique_ptr<LocalAssemblerInterface>> _local_assemblers;
+    std::vector<std::unique_ptr<ThermoHydroMechanicsLocalAssemblerInterface>> _local_assemblers;
+
 };
 
 }  // namespace ThermoHydroMechanics
