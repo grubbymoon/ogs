@@ -102,15 +102,27 @@ struct IntegrationPointData final
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
-//struct ThermoHydroMechanicsLocalAssemblerInterface
-//    : public ProcessLib::LocalAssemblerInterface
-//{
-//};
+struct ThermoHydroMechanicsLocalAssemblerInterface
+    : public ProcessLib::LocalAssemblerInterface,
+      public NumLib::ExtrapolatableElement
+{
+public:
+    virtual std::vector<double> const& getIntPtDarcyVelocityX(
+        std::vector<double>& /*cache*/) const = 0;
+
+    virtual std::vector<double> const& getIntPtDarcyVelocityY(
+        std::vector<double>& /*cache*/) const = 0;
+
+    virtual std::vector<double> const& getIntPtDarcyVelocityZ(
+        std::vector<double>& /*cache*/) const = 0;
+};
+
+
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
 class ThermoHydroMechanicsLocalAssembler
-    : public ProcessLib::LocalAssemblerInterface
+    : public ThermoHydroMechanicsLocalAssemblerInterface
 {
 public:
 /*    using ShapeMatricesType =
@@ -156,7 +168,10 @@ public:
         ThermoHydroMechanicsProcessData<DisplacementDim>& process_data)
         : _process_data(process_data),
           _integration_method(integration_order),
-          _element(e)
+          _element(e),
+          _darcy_velocities(
+            2,
+            std::vector<double>(_integration_method.getNumberOfPoints()))
     {
         unsigned const n_integration_points =
             _integration_method.getNumberOfPoints();
@@ -473,6 +488,12 @@ public:
             KTp_coeff.noalias() +=  K_over_mu * rho_fr * C_f * N_T.transpose() * (dNdx_T * T).transpose() * dNdx_T * w ;
           //  KTp.noalias() +=  N_T.transpose() * heat_capacity * N_T * w;
 
+            // velocity computed for output.
+            for (unsigned d = 0; d < 2; ++d)
+            {
+                _darcy_velocities[d][ip] = velocity[d];
+            }
+
 
         }
         // temperature equation, temperature part
@@ -545,6 +566,27 @@ public:
         }
     }
 
+    std::vector<double> const& getIntPtDarcyVelocityX(
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(_darcy_velocities.size() > 0);
+        return _darcy_velocities[0];
+    }
+
+    std::vector<double> const& getIntPtDarcyVelocityY(
+        std::vector<double>& /*cache*/) const override
+    {
+       assert(_darcy_velocities.size() > 1);
+       return _darcy_velocities[1];
+    }
+
+    std::vector<double> const& getIntPtDarcyVelocityZ(
+        std::vector<double>& /*cache*/) const override
+    {
+        assert(_darcy_velocities.size() > 2);
+        return _darcy_velocities[2];
+    }
+
 private:
     ThermoHydroMechanicsProcessData<DisplacementDim>& _process_data;
 
@@ -558,6 +600,7 @@ private:
 
     IntegrationMethod _integration_method;
     MeshLib::Element const& _element;
+    //SecondaryData<typename ShapeMatrices::ShapeType> _secondary_data;
 
     static const int temperature_index = 0;
     static const int temperature_size = ShapeFunctionPressure::NPOINTS;
@@ -568,11 +611,12 @@ private:
         ShapeFunctionDisplacement::NPOINTS * DisplacementDim;
     static const int kelvin_vector_size =
         KelvinVectorDimensions<DisplacementDim>::value;
+    std::vector<std::vector<double>> _darcy_velocities;
 };
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, unsigned GlobalDim, int DisplacementDim>
-class LocalAssemblerData final
+class LocalAssemblerData
     : public ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
                                                 ShapeFunctionPressure ,
                                                 IntegrationMethod, DisplacementDim>
