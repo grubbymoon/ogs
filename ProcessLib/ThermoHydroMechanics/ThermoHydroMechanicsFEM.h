@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "MaterialLib/SolidModels/KelvinVector.h"
-#include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
+#include "MaterialLib/SolidModels/FreezingLinearElasticIsotropic.h"
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
 #include "NumLib/Extrapolation/ExtrapolatableElement.h"
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
@@ -26,6 +26,7 @@
 #include "ProcessLib/LocalAssemblerTraits.h"
 #include "ProcessLib/Parameter/Parameter.h"
 #include "ProcessLib/Utils/InitShapeMatrices.h"
+#include "FreezingMaterialModel.h"
 
 #include "ThermoHydroMechanicsProcessData.h"
 
@@ -56,6 +57,8 @@ struct IntegrationPointData final
           eps_prev(std::move(other.eps_prev)),
           solid_material(other.solid_material),
           material_state_variables(std::move(other.material_state_variables)),
+          C_solid(std::move.C_solid)
+          C_ice(std::move.C_ice)
           C(std::move(other.C)),
           integration_weight(std::move(other.integration_weight))
     {
@@ -78,6 +81,8 @@ struct IntegrationPointData final
         material_state_variables;
 
     typename BMatricesType::KelvinMatrixType C;
+    typename BMatricesType::KelvinMatrixType C_solid;
+    typename BMatricesType::KelvinMatrixType C_ice;
     double integration_weight;
 
     void pushBackState()
@@ -91,11 +96,12 @@ struct IntegrationPointData final
     void updateConstitutiveRelation(double const t,
                                     SpatialPosition const& x_position,
                                     double const dt,
-                                    DisplacementVectorType const& u)
+                                    DisplacementVectorType const& u,
+                                    double phi_i)
     {
         eps.noalias() = b_matrices * u;
-        solid_material.computeConstitutiveRelation(
-            t, x_position, dt, eps_prev, eps, sigma_eff_prev, sigma_eff, C,
+        solid_material.computeFreezingConstitutiveRelation(
+            t, x_position, dt, eps_prev, eps, sigma_eff_prev, sigma_eff,, C_solid, C_ice, C, phi_i,
             *material_state_variables);
     }
 
@@ -200,6 +206,8 @@ public:
             ip_data.eps.resize(kelvin_vector_size);
             ip_data.eps_prev.resize(kelvin_vector_size);
             ip_data.C.resize(kelvin_vector_size, kelvin_vector_size);
+            ip_data.C_ice.resize(kelvin_vector_size, kelvin_vector_size);
+            ip_data.C_solid.resize(kelvin_vector_size, kelvin_vector_size);
 
             //ip_data._N_u = shape_matrices_u[ip].N;
             ip_data.N_u = ShapeMatricesTypeDisplacement::template MatrixType<
@@ -272,6 +280,7 @@ public:
             MathLib::createZeroedVector<NodalDisplacementVectorType>(
                 local_rhs_data, local_matrix_size); */
 
+        // Jacobian Matrix
         auto local_Jac = MathLib::createZeroedMatrix<
             typename ShapeMatricesTypeDisplacement::template MatrixType<
                 displacement_size + pressure_size + temperature_size,
@@ -279,22 +288,24 @@ public:
             local_Jac_data, displacement_size + pressure_size + temperature_size,
             displacement_size + pressure_size + temperature_size);
 
+        // Residual
         auto local_rhs = MathLib::createZeroedVector<
             typename ShapeMatricesTypeDisplacement::template VectorType<
                 displacement_size + pressure_size + temperature_size>>(
             local_rhs_data, displacement_size + pressure_size + temperature_size);
 
+        // coeff matrix is used for the residual
         typename ShapeMatricesTypePressure::NodalMatrixType MTT;
         MTT.setZero(temperature_size, temperature_size);
 
-        typename ShapeMatricesTypePressure::NodalMatrixType KTT_coeff;
-        KTT_coeff.setZero(temperature_size, temperature_size);
+        typename ShapeMatricesTypePressure::NodalMatrixType MTT_coeff;
+        MTT_coeff.setZero(temperature_size, temperature_size);
 
         typename ShapeMatricesTypePressure::NodalMatrixType KTT;
         KTT.setZero(temperature_size, temperature_size);
 
-        typename ShapeMatricesTypePressure::NodalMatrixType KTp;
-        KTp.setZero(temperature_size, pressure_size);
+        typename ShapeMatricesTypePressure::NodalMatrixType KTT_coeff;
+        KTT_coeff.setZero(temperature_size, temperature_size);
 
         typename ShapeMatricesTypePressure::NodalMatrixType KTp_coeff;
         KTp_coeff.setZero(temperature_size, pressure_size);
@@ -308,14 +319,24 @@ public:
         typename ShapeMatricesTypePressure::NodalMatrixType storage_T;
         storage_T.setZero(pressure_size, temperature_size);
 
+        typename ShapeMatricesTypePressure::NodalMatrixType storage_T_coeff;
+        storage_T_coeff.setZero(pressure_size, temperature_size);
+
         typename ShapeMatricesTypeDisplacement::template MatrixType<displacement_size,
                                                         pressure_size>
             Kup;
         Kup.setZero(displacement_size, pressure_size);
+
         typename ShapeMatricesTypeDisplacement::template MatrixType<displacement_size,
                                                         temperature_size>
             KuT;
         KuT.setZero(displacement_size, temperature_size);
+
+        typename ShapeMatricesTypeDisplacement::template MatrixType<displacement_size,
+                                                        temperature_size>
+            KuT_coeff;
+        KuT_coeff.setZero(displacement_size, temperature_size);
+
 
         double const& dt = _process_data.dt;
 
@@ -340,6 +361,8 @@ public:
             auto const& sigma_eff = _ip_data[ip].sigma_eff;
 
             auto const& C = _ip_data[ip].C;
+            auto const& C_ice = _ip_data[ip].C_ice;
+            auto const& C_solid = _ip_data[ip].C_solid;
 
             double const S =
                 _process_data.storage_coefficient(t, x_position)[0];
@@ -358,6 +381,19 @@ public:
             auto rho_fr = _process_data.fluid_density(t, x_position)[0];
             auto const porosity = _process_data.porosity(t, x_position)[0];
             auto const& b = _process_data.specific_body_force;
+
+            auto const rho_ir = 900.0 ;
+            auto const C_i = 2060 ;
+            auto const lambda_i = 2.14;
+            auto phi_i = 0.0;
+            auto const sigmoid_coeff = 5.0;
+            auto const latent_heat = 334000;
+            auto const beta_i = 0.06 ;
+            auto const beta_IF = 0.09 ; // Freezing strain
+            auto sigmoid_derive = 0.0 ;
+            auto sigmoid_derive_second = 0.0 ;
+            double lambda = 0.0 ;
+            double heat_capacity = 0.0 ;
          //   assert(body_force.size() == DisplacementDim);
          //   auto const b =
          //       Eigen::Map<typename ShapeMatricesType::template VectorType<
@@ -374,10 +410,19 @@ public:
         //    std::vector<double>::const_iterator last = local_x.begin() + num_nodes*2;
         //    std::vector<double> local_Tp(first, last);
         //    NumLib::shapeFunctionInterpolate(local_Tp, N_p, T_int_pt, p_int_pt);
-          auto T_int_pt = N_T * T ;
+            auto T_int_pt = N_T * T ;
             double delta_T(T_int_pt - T0);
             rho_fr = rho_fr*(1 - beta_f * delta_T);
             rho_sr = rho_sr*(1 - beta_s * delta_T);
+
+            // Freezing process
+            phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
+            // Permeability change due to freezing is not considered in order to compare with analytical solution
+            sigmoid_derive = Calcsigmoidderive(sigmoid_coeff, porosity, T_int_pt); // dphi_i/dT
+            sigmoid_derive_second = Calcsigmoidsecondderive(sigmoid_coeff, porosity, T_int_pt);
+            lambda = (porosity - phi_i) * lambda_f + (1 - porosity) * lambda_s + phi_i * lambda_i;
+            heat_capacity = EquaHeatCapacity(phi_i, rho_fr, rho_sr, rho_ir,
+            C_s, C_i, C_f, porosity, sigmoid_derive, latent_heat);
 
       /*      auto p_nodal_values = Eigen::Map<const Eigen::VectorXd>(
             &local_x[num_nodes], num_nodes);   */
