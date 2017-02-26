@@ -6,7 +6,7 @@
 namespace ProcessLib
 {
 
-namespace Freezing {
+namespace ThermoHydroMechanics {
 
 
 static double CalcIceVolFrac(double T_in_dC, double freezing_sigmoid_coeff, double porosity)
@@ -18,6 +18,7 @@ static double CalcIceVolFrac(double T_in_dC, double freezing_sigmoid_coeff, doub
    return phi_i;
 }
 
+// dPhi_i/dT
 static double Calcsigmoidderive(double freezing_sigmoid_coeff, double porosity, double T_in_dC)
 {
   double sigmoid_derive = 0.0;
