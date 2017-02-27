@@ -102,6 +102,12 @@ struct IntegrationPointData final
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
+template <typename ShapeMatrixType>
+struct SecondaryData
+{
+    std::vector<ShapeMatrixType, Eigen::aligned_allocator<ShapeMatrixType>> N;
+};
+
 struct ThermoHydroMechanicsLocalAssemblerInterface
     : public ProcessLib::LocalAssemblerInterface,
       public NumLib::ExtrapolatableElement
@@ -155,7 +161,7 @@ public:
     // Types for pressure.
     using ShapeMatricesTypePressure =
         ShapeMatrixPolicyType<ShapeFunctionPressure, DisplacementDim>;
-
+    using ShapeMatrices = typename ShapeMatricesTypePressure::ShapeMatrices;
 
     ThermoHydroMechanicsLocalAssembler(ThermoHydroMechanicsLocalAssembler const&) = delete;
     ThermoHydroMechanicsLocalAssembler(ThermoHydroMechanicsLocalAssembler&&) = delete;
@@ -177,6 +183,7 @@ public:
             _integration_method.getNumberOfPoints();
 
         _ip_data.reserve(n_integration_points);
+        _secondary_data.N.resize(n_integration_points);
 
         auto const shape_matrices_u =
             initShapeMatrices<ShapeFunctionDisplacement, ShapeMatricesTypeDisplacement,
@@ -228,6 +235,7 @@ public:
 
             ip_data._N_p = shape_matrices_p[ip].N;
             ip_data._dNdx_p = shape_matrices_p[ip].dNdx;
+             _secondary_data.N[ip] = shape_matrices_p[ip].N;
         }
     }
 
@@ -566,6 +574,15 @@ public:
         }
     }
 
+    Eigen::Map<const Eigen::RowVectorXd> getShapeMatrix(
+        const unsigned integration_point) const override
+    {
+        auto const& N = _secondary_data.N[integration_point];
+
+        // assumes N is stored contiguously in memory
+        return Eigen::Map<const Eigen::RowVectorXd>(N.data(), N.size());
+    }
+
     std::vector<double> const& getIntPtDarcyVelocityX(
         std::vector<double>& /*cache*/) const override
     {
@@ -600,7 +617,7 @@ private:
 
     IntegrationMethod _integration_method;
     MeshLib::Element const& _element;
-    //SecondaryData<typename ShapeMatrices::ShapeType> _secondary_data;
+    SecondaryData<typename ShapeMatrices::ShapeType> _secondary_data;
 
     static const int temperature_index = 0;
     static const int temperature_size = ShapeFunctionPressure::NPOINTS;

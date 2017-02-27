@@ -223,4 +223,4 @@ void doProcessOutput(
     vtu_interface.writeToFile(file_name);
 }
 
-} // ProcessLib
+} // ProcessLibre
