@@ -94,7 +94,9 @@ public:
 
         C.template topLeftCorner<3, 3>().setConstant(_mp.lambda(t, x));
         C.noalias() += 2 * _mp.mu(t, x) * KelvinMatrix::Identity();
-
+        //auto eps_m = eps - 2.1e-5/3*80*KelvinVector::Identity() ;
+        //auto eps_m_prev = eps_prev - 2.1e-5/3*80*KelvinVector::Identity() ;
+        //sigma.noalias() = sigma_prev + C * (eps_m - eps_m_prev);
         sigma.noalias() = sigma_prev + C * (eps - eps_prev);
         return true;
     }

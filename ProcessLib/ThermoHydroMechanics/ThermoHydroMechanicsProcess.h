@@ -106,26 +106,68 @@ void constructDofTable() override
             _process_data);
 
         Base::_secondary_variables.addSecondaryVariable(
-            "darcy_velocity_x", 1,
-            makeExtrapolator(getExtrapolator(), _local_assemblers,
-                             &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityX)) ;
+            "sigma_xx", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaXX));
 
-        if (mesh.getDimension() > 1)
-        {
-           Base::_secondary_variables.addSecondaryVariable(
-                "darcy_velocity_y", 1,
+        Base::_secondary_variables.addSecondaryVariable(
+            "sigma_yy", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaYY));
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "sigma_zz", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaZZ));
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "sigma_xy", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaXY));
+
+        if (DisplacementDim == 3) {
+            Base::_secondary_variables.addSecondaryVariable(
+                "sigma_xz", 1,
                 makeExtrapolator(
                     getExtrapolator(), _local_assemblers,
-                    &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityY));
-        }
-        if (mesh.getDimension() > 2)
-        {
-          Base::_secondary_variables.addSecondaryVariable(
-                "darcy_velocity_z", 1,
+                    &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaXZ));
+
+            Base::_secondary_variables.addSecondaryVariable(
+                "sigma_yz", 1,
                 makeExtrapolator(
                     getExtrapolator(), _local_assemblers,
-                    &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityZ));
+                    &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaYZ));
         }
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "epsilon_xx", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonXX));
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "epsilon_yy", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonYY));
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "epsilon_zz", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonZZ));
+
+        Base::_secondary_variables.addSecondaryVariable(
+            "epsilon_xy", 1,
+            makeExtrapolator(
+                getExtrapolator(), _local_assemblers,
+                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonXY));
+
+
     }
 
     void assembleConcreteProcess(const double t, GlobalVector const& x,

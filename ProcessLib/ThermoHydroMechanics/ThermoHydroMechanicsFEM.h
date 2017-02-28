@@ -92,8 +92,9 @@ struct IntegrationPointData final
                                     SpatialPosition const& x_position,
                                     double const dt,
                                     DisplacementVectorType const& u)
-    {
+    {;
         eps.noalias() = b_matrices * u;
+
         solid_material.computeConstitutiveRelation(
             t, x_position, dt, eps_prev, eps, sigma_eff_prev, sigma_eff, C,
             *material_state_variables);
@@ -113,14 +114,41 @@ struct ThermoHydroMechanicsLocalAssemblerInterface
       public NumLib::ExtrapolatableElement
 {
 public:
-    virtual std::vector<double> const& getIntPtDarcyVelocityX(
-        std::vector<double>& /*cache*/) const = 0;
+    virtual std::vector<double> const& getIntPtSigmaXX(
+        std::vector<double>& cache) const = 0;
 
-    virtual std::vector<double> const& getIntPtDarcyVelocityY(
-        std::vector<double>& /*cache*/) const = 0;
+    virtual std::vector<double> const& getIntPtSigmaYY(
+        std::vector<double>& cache) const = 0;
 
-    virtual std::vector<double> const& getIntPtDarcyVelocityZ(
-        std::vector<double>& /*cache*/) const = 0;
+    virtual std::vector<double> const& getIntPtSigmaZZ(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtSigmaXY(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtSigmaXZ(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtSigmaYZ(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtEpsilonXX(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtEpsilonYY(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtEpsilonZZ(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtEpsilonXY(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtEpsilonXZ(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtEpsilonYZ(
+        std::vector<double>& cache) const = 0;
 };
 
 
@@ -161,7 +189,7 @@ public:
     // Types for pressure.
     using ShapeMatricesTypePressure =
         ShapeMatrixPolicyType<ShapeFunctionPressure, DisplacementDim>;
-    using ShapeMatrices = typename ShapeMatricesTypePressure::ShapeMatrices;
+    using ShapeMatrices = typename ShapeMatricesTypeDisplacement::ShapeMatrices;
 
     ThermoHydroMechanicsLocalAssembler(ThermoHydroMechanicsLocalAssembler const&) = delete;
     ThermoHydroMechanicsLocalAssembler(ThermoHydroMechanicsLocalAssembler&&) = delete;
@@ -497,10 +525,10 @@ public:
           //  KTp.noalias() +=  N_T.transpose() * heat_capacity * N_T * w;
 
             // velocity computed for output.
-            for (unsigned d = 0; d < 2; ++d)
-            {
-                _darcy_velocities[d][ip] = velocity[d];
-            }
+      //      for (unsigned d = 0; d < 2; ++d)
+      //      {
+      //          _darcy_velocities[d][ip] = velocity[d];
+      //      }
 
 
         }
@@ -583,28 +611,111 @@ public:
         return Eigen::Map<const Eigen::RowVectorXd>(N.data(), N.size());
     }
 
-    std::vector<double> const& getIntPtDarcyVelocityX(
-        std::vector<double>& /*cache*/) const override
+    std::vector<double> const& getIntPtSigmaXX(
+        std::vector<double>& cache) const override
     {
-        assert(_darcy_velocities.size() > 0);
-        return _darcy_velocities[0];
+        return getIntPtSigma(cache, 0);
     }
 
-    std::vector<double> const& getIntPtDarcyVelocityY(
-        std::vector<double>& /*cache*/) const override
+    std::vector<double> const& getIntPtSigmaYY(
+        std::vector<double>& cache) const override
     {
-       assert(_darcy_velocities.size() > 1);
-       return _darcy_velocities[1];
+        return getIntPtSigma(cache, 1);
     }
 
-    std::vector<double> const& getIntPtDarcyVelocityZ(
-        std::vector<double>& /*cache*/) const override
+    std::vector<double> const& getIntPtSigmaZZ(
+        std::vector<double>& cache) const override
     {
-        assert(_darcy_velocities.size() > 2);
-        return _darcy_velocities[2];
+        return getIntPtSigma(cache, 2);
     }
 
+    std::vector<double> const& getIntPtSigmaXY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtSigma(cache, 3);
+    }
+
+    std::vector<double> const& getIntPtSigmaXZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtSigma(cache, 4);
+    }
+
+    std::vector<double> const& getIntPtSigmaYZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtSigma(cache, 5);
+    }
+
+    std::vector<double> const& getIntPtEpsilonXX(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 0);
+    }
+
+    std::vector<double> const& getIntPtEpsilonYY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 1);
+    }
+
+    std::vector<double> const& getIntPtEpsilonZZ(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 2);
+    }
+
+    std::vector<double> const& getIntPtEpsilonXY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 3);
+    }
+
+    std::vector<double> const& getIntPtEpsilonXZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtEpsilon(cache, 4);
+    }
+
+    std::vector<double> const& getIntPtEpsilonYZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtEpsilon(cache, 5);
+    }
 private:
+    std::vector<double> const& getIntPtSigma(std::vector<double>& cache,
+                                             std::size_t const component) const
+    {
+        cache.clear();
+        cache.reserve(_ip_data.size());
+
+        for (auto const& ip_data : _ip_data) {
+            if (component < 3)  // xx, yy, zz components
+                cache.push_back(ip_data.sigma_eff[component]);
+            else    // mixed xy, yz, xz components
+                cache.push_back(ip_data.sigma_eff[component] / std::sqrt(2));
+        }
+
+        return cache;
+    }
+
+    std::vector<double> const& getIntPtEpsilon(
+        std::vector<double>& cache, std::size_t const component) const
+    {
+        cache.clear();
+        cache.reserve(_ip_data.size());
+
+        for (auto const& ip_data : _ip_data) {
+            cache.push_back(ip_data.eps[component]);
+        }
+
+        return cache;
+    }
+
     ThermoHydroMechanicsProcessData<DisplacementDim>& _process_data;
 
     using BMatricesType =
