@@ -10,6 +10,7 @@
 #pragma once
 
 #include "MechanicsBase.h"
+#include "MaterialLib/SolidModels/KelvinVector.h"
 
 namespace MaterialLib
 {
@@ -71,7 +72,7 @@ public:
         ProcessLib::KelvinVectorDimensions<DisplacementDim>::value;
     using KelvinVector = ProcessLib::KelvinVectorType<DisplacementDim>;
     using KelvinMatrix = ProcessLib::KelvinMatrixType<DisplacementDim>;
-
+    using Invariants = MaterialLib::SolidModels::Invariants<KelvinVectorSize>;
     explicit LinearElasticIsotropic(
         MaterialProperties const& material_properties)
         : _mp(material_properties)
@@ -92,12 +93,14 @@ public:
     {
         C.setZero();
 
+
         C.template topLeftCorner<3, 3>().setConstant(_mp.lambda(t, x));
         C.noalias() += 2 * _mp.mu(t, x) * KelvinMatrix::Identity();
         //auto eps_m = eps - 2.1e-5/3*80*KelvinVector::Identity() ;
         //auto eps_m_prev = eps_prev - 2.1e-5/3*80*KelvinVector::Identity() ;
         //sigma.noalias() = sigma_prev + C * (eps_m - eps_m_prev);
         sigma.noalias() = sigma_prev + C * (eps - eps_prev);
+        //sigma.noalias() = sigma - C*(2.1e-5)/3*80*Invariants::identity2;
         return true;
     }
 

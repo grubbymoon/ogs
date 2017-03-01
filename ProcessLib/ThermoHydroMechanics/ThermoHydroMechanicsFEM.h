@@ -66,7 +66,7 @@ struct IntegrationPointData final
         DisplacementDim, NPoints * DisplacementDim>
         N_u;
     typename BMatricesType::BMatrixType b_matrices;
-    typename BMatricesType::KelvinVectorType sigma_eff, sigma_eff_prev;
+    typename BMatricesType::KelvinVectorType sigma_eff, sigma_eff_prev, sigma_m;
     typename BMatricesType::KelvinVectorType eps, eps_prev;
 
     typename ShapeMatricesTypePressure::NodalRowVectorType _N_p;
@@ -94,10 +94,16 @@ struct IntegrationPointData final
                                     DisplacementVectorType const& u)
     {;
         eps.noalias() = b_matrices * u;
-
+        int const kelvin_vector_size =
+                KelvinVectorDimensions<DisplacementDim>::value;
+        auto identity2 = MaterialLib::SolidModels::Invariants<
+                        kelvin_vector_size>::identity2;
+      //  eps = eps - (2.1e-5)/3*80*identity2;
         solid_material.computeConstitutiveRelation(
             t, x_position, dt, eps_prev, eps, sigma_eff_prev, sigma_eff, C,
             *material_state_variables);
+      //  eps = eps + (2.1e-5)/3*80*identity2;
+        sigma_m = sigma_eff - C*(2.1e-5)/3*80*identity2;
     }
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
@@ -246,6 +252,7 @@ public:
                 is_axially_symmetric, shape_matrices_u[ip].N, x_coord);
 
             ip_data.sigma_eff.resize(kelvin_vector_size);
+            ip_data.sigma_m.resize(kelvin_vector_size);
             ip_data.sigma_eff_prev.resize(kelvin_vector_size);
             ip_data.eps.resize(kelvin_vector_size);
             ip_data.eps_prev.resize(kelvin_vector_size);
@@ -263,7 +270,7 @@ public:
 
             ip_data._N_p = shape_matrices_p[ip].N;
             ip_data._dNdx_p = shape_matrices_p[ip].dNdx;
-             _secondary_data.N[ip] = shape_matrices_p[ip].N;
+             _secondary_data.N[ip] = shape_matrices_u[ip].N;
         }
     }
 
@@ -389,6 +396,7 @@ public:
 
             auto const& B = _ip_data[ip].b_matrices;
             auto const& sigma_eff = _ip_data[ip].sigma_eff;
+            auto const& sigma_m = _ip_data[ip].sigma_m;
 
             auto const& C = _ip_data[ip].C;
 
@@ -695,9 +703,9 @@ private:
 
         for (auto const& ip_data : _ip_data) {
             if (component < 3)  // xx, yy, zz components
-                cache.push_back(ip_data.sigma_eff[component]);
+                cache.push_back(ip_data.sigma_m[component]);
             else    // mixed xy, yz, xz components
-                cache.push_back(ip_data.sigma_eff[component] / std::sqrt(2));
+                cache.push_back(ip_data.sigma_m[component] / std::sqrt(2));
         }
 
         return cache;
