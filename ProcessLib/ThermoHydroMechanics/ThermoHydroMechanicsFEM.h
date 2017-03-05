@@ -293,7 +293,9 @@ public:
                               std::vector<double>& local_rhs_data,
                               std::vector<double>& local_Jac_data) override
     {
+        auto const local_matrix_size = local_x.size();
         assert(local_x.size() == temperature_size + pressure_size + displacement_size);
+
 
         auto T =
             Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
@@ -336,6 +338,15 @@ public:
                 displacement_size + pressure_size + temperature_size>>(
             local_Jac_data, displacement_size + pressure_size + temperature_size,
             displacement_size + pressure_size + temperature_size);
+
+        // Jacobian Matrix numerical
+         Eigen::MatrixXd local_Jac_numerical = Eigen::MatrixXd::Zero(
+             local_matrix_size, local_matrix_size);
+
+         // Residual vector for numerical jacobian
+         Eigen::MatrixXd local_b_p = Eigen::VectorXd::Zero(local_matrix_size);
+
+         Eigen::MatrixXd local_b_m = Eigen::VectorXd::Zero(local_matrix_size);
 
         auto local_rhs = MathLib::createZeroedVector<
             typename ShapeMatricesTypeDisplacement::template VectorType<
@@ -415,6 +426,8 @@ public:
             auto const alpha = _process_data.biot_coefficient(t, x_position)[0];
             auto rho_sr = _process_data.solid_density(t, x_position)[0];
             auto rho_fr = _process_data.fluid_density(t, x_position)[0];
+            auto rho_s = 0.0;
+            auto rho_f = 0.0;
             auto const porosity = _process_data.porosity(t, x_position)[0];
             auto const& b = _process_data.specific_body_force;
          //   assert(body_force.size() == DisplacementDim);
@@ -435,8 +448,8 @@ public:
         //    NumLib::shapeFunctionInterpolate(local_Tp, N_p, T_int_pt, p_int_pt);
           auto T_int_pt = N_T * T ;
             double delta_T(T_int_pt - T0);
-            rho_fr = rho_fr*(1 - beta_f * delta_T);
-            rho_sr = rho_sr*(1 - beta_s * delta_T);
+            rho_f = rho_fr*(1 - beta_f * delta_T);
+            rho_s = rho_sr*(1 - beta_s * delta_T);
 
       /*      auto p_nodal_values = Eigen::Map<const Eigen::VectorXd>(
             &local_x[num_nodes], num_nodes);   */
@@ -473,7 +486,7 @@ public:
                        i, i * displacement_size / DisplacementDim)
                     .noalias() = _ip_data[ip]._N_u; */
 
-            double const rho = rho_sr * (1 - porosity) + porosity * rho_fr;
+            double rho = rho_sr * (1 - porosity) + porosity * rho_fr;
             local_rhs.template segment<displacement_size>(displacement_index)
                 .noalias() -=
                 (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w;
@@ -538,9 +551,105 @@ public:
       //          _darcy_velocities[d][ip] = velocity[d];
       //      }
 
+            // calculate numerical Jac
+                                    double num_p = 1e-8;
+                                    Eigen::VectorXd num_vec = Eigen::VectorXd::Zero(local_matrix_size);
+                                    std::vector<double> local_perturbed = local_x;
+                                    for (Eigen::MatrixXd::Index i = 0; i < local_matrix_size; i++)
+                                    {
+                                        num_vec[i] = num_p;
+                                        local_perturbed[i] += num_vec[i];
+                                        auto T_p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                                            temperature_size> const>(local_perturbed.data() + temperature_index,
+                                                                    temperature_size);
+                                        auto p_p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                                            pressure_size> const>(local_perturbed.data() + pressure_index,
+                                                                    pressure_size);
+                                        auto u_p = Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
+                                            displacement_size> const>(local_perturbed.data() + displacement_index,
+                                                                      displacement_size);
+                                        double const T_int_pt_p = N_T*T_p;
+                                        //phi_i = CalcIceVolFrac(T_int_pt_p, sigmoid_coeff, porosity);
+                                        // update the constitutive relation for displacement becasue of the increment
+                                        _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_p);
+                                        // thermal expansion
+                                        double delta_T_p(T_int_pt_p - T0);
+                                        rho_f = rho_fr*(1 - beta_f * delta_T_p);
+                                        rho_s = rho_sr*(1 - beta_s * delta_T_p);
+                                        rho = rho_s * (1 - porosity) + porosity * rho_f;
+                                        // Freezing process
+                                        // Permeability change due to freezing is not considered currenty in order to compare with analytical solution
+                                        //sigmoid_derive = Calcsigmoidderive(sigmoid_coeff, porosity, T_int_pt_p); // dphi_i/dT
+                                        //sigmoid_derive_second = Calcsigmoidsecondderive(sigmoid_coeff, porosity, T_int_pt);
+                                        heat_capacity = porosity * C_f * rho_f + (1 - porosity) * C_s * rho_s;
+                                        // dC(T)/dT
+                                        // auto const C_derive =  sigmoid_derive * C_ice;
+                                        local_b_p
+                                            .template block<temperature_size,1>(temperature_index,0)
+                                            .noalias() =
+                                            N_T.transpose() * heat_capacity * N_T * w * T_p/dt +
+                                                (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* T_p * w ;
+                                        local_b_p.template block<pressure_size,1>(pressure_index,0)
+                                            .noalias() = N_p.transpose() * S * N_p * w * p_p/dt + dNdx_p.transpose() * K_over_mu * dNdx_p * w * p_p
+                                             + N_p.transpose()*(-beta)*N_p* w * T_p/dt   + Kup.transpose() * u_p/dt
+                                                - dNdx_p.transpose() * rho_fr * K_over_mu * b * w;
+                                        local_b_p
+                                            .template block<displacement_size,1>(displacement_index,0)
+                                            .noalias() =
+                                            (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w +
+                                                B.transpose() * (C * identity2 * (beta_s/3) * T0 ) * w -
+                                             B.transpose() * C * identity2 * (beta_s/3) * N_T * T_p * w - B.transpose() * alpha * identity2 * N_p *p_p * w;
+
+                                        local_perturbed[i] = local_x[i] - num_vec[i];
+                                        auto T_m = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                                            temperature_size> const>(local_perturbed.data() + temperature_index,
+                                                                    temperature_size);
+                                        auto p_m = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                                            pressure_size> const>(local_perturbed.data() + pressure_index,
+                                                                    pressure_size);
+                                        auto u_m = Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
+                                            displacement_size> const>(local_perturbed.data() + displacement_index,
+                                                                      displacement_size);
+                                        double const T_int_pt_m = N_T*T_m;
+                                        //phi_i = CalcIceVolFrac(T_int_pt_m, sigmoid_coeff, porosity);
+                                        // update the constitutive relation for displacement becasue of the increment
+                                        _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_m);
+                                        // thermal expansion
+                                        double delta_T_m(T_int_pt_m - T0);
+                                        rho_f = rho_fr*(1 - beta_f * delta_T_m);
+                                        rho_s = rho_sr*(1 - beta_s * delta_T_m);
+                                        rho = rho_s * (1 - porosity) + porosity * rho_f;
+                                        // Freezing process
+                                        // Permeability change due to freezing is not considered currenty in order to compare with analytical solution
+                                        //sigmoid_derive = Calcsigmoidderive(sigmoid_coeff, porosity, T_int_pt_m); // dphi_i/dT
+                                        //sigmoid_derive_second = Calcsigmoidsecondderive(sigmoid_coeff, porosity, T_int_pt_m);
+                                        // lambda to be constant for now
+                                        //lambda = (porosity - phi_i) * lambda_f + (1 - porosity) * lambda_s + phi_i * lambda_i;
+                                        heat_capacity = porosity * C_f * rho_f + (1 - porosity) * C_s * rho_s;
+                                        local_b_m
+                                            .template block<temperature_size,1>(temperature_index,0)
+                                            .noalias() =
+                                            N_T.transpose() * heat_capacity * N_T * w * T_m/dt +
+                                                (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* T_m * w ;
+                                        local_b_m.template block<pressure_size,1>(pressure_index,0)
+                                            .noalias() = N_p.transpose() * S * N_p * w * p_m/dt + dNdx_p.transpose() * K_over_mu * dNdx_p * w * p_m  +
+                                                N_p.transpose()*(-beta)*N_p* w * T_m/dt  +Kup.transpose()* u_m/dt
+                                                - dNdx_p.transpose() * rho_fr * K_over_mu * b * w;
+                                        local_b_m
+                                            .template block<displacement_size,1>(displacement_index,0)
+                                            .noalias() =
+                                            (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w +
+                                                B.transpose() * (C * identity2 * (beta_s/3) * T0 ) * w -
+                                             B.transpose() * C * identity2 * (beta_s/3) * N_T * T_m* w - B.transpose() * alpha * identity2 * N_p *p_m * w;
+                                        local_perturbed[i] = local_x[i];
+                                        local_Jac_numerical.col(i).noalias() += (local_b_p - local_b_m) / (2.0 * num_vec[i]);
+
+
+                                    }
+
 
         }
-        // temperature equation, temperature part
+   /*     // temperature equation, temperature part
         local_Jac
             .template block<temperature_size, temperature_size>(
                 temperature_index, temperature_index)
@@ -579,7 +688,7 @@ public:
         local_Jac
             .template block<pressure_size, displacement_size>(
                 pressure_index, displacement_index)
-            .noalias() += Kup.transpose() / dt;
+            .noalias() += Kup.transpose() / dt;  */
 
         // pressure equation (f_p)
         local_rhs.template segment<pressure_size>(pressure_index)
@@ -594,7 +703,7 @@ public:
         // temperature equation (f_T)
         local_rhs.template segment<temperature_size>(temperature_index)
             .noalias() -= KTT * T + MTT * T_dot;
-
+        local_Jac = local_Jac_numerical ;
     }
 
     void preTimestepConcrete(std::vector<double> const& /*local_x*/,
