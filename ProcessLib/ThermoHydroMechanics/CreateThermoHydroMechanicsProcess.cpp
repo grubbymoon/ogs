@@ -11,7 +11,7 @@
 
 #include <cassert>
 
-#include "MaterialLib/SolidModels/CreateFreezingLinearElasticIsotropic.h"
+#include "MaterialLib/SolidModels/CreateLinearElasticIsotropic.h"
 #include "ProcessLib/Utils/ParseSecondaryVariables.h"
 
 #include "ThermoHydroMechanicsProcess.h"
@@ -97,12 +97,12 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
     auto const type =
         constitutive_relation_config.peekConfigParameter<std::string>("type");
 
-    std::unique_ptr<MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>>
+    std::unique_ptr<MaterialLib::Solids::MechanicsBase<DisplacementDim>>
         material = nullptr;
-    if (type == "FreezingLinearElasticIsotropic")
+    if (type == "LinearElasticIsotropic")
     {
         material =
-            MaterialLib::Solids::createFreezingLinearElasticIsotropic<DisplacementDim>(
+            MaterialLib::Solids::createLinearElasticIsotropic<DisplacementDim>(
                 parameters, constitutive_relation_config);
     }
     else
