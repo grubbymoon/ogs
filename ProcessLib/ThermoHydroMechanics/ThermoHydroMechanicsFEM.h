@@ -110,15 +110,66 @@ struct IntegrationPointData final
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
 
-//struct ThermoHydroMechanicsLocalAssemblerInterface
-//    : public ProcessLib::LocalAssemblerInterface
-//{
-//};
+template <typename ShapeMatrixType>
+struct SecondaryData
+{
+    std::vector<ShapeMatrixType, Eigen::aligned_allocator<ShapeMatrixType>> N;
+};
+
+struct ThermoHydroMechanicsLocalAssemblerInterface
+    : public ProcessLib::LocalAssemblerInterface,
+      public NumLib::ExtrapolatableElement
+{
+    virtual std::vector<double> const& getIntPtSigmaXX(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtSigmaYY(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtSigmaZZ(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtSigmaXY(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtSigmaXZ(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtSigmaYZ(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtEpsilonXX(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtEpsilonYY(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtEpsilonZZ(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtEpsilonXY(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtEpsilonXZ(
+            std::vector<double>& cache) const = 0;
+
+        virtual std::vector<double> const& getIntPtEpsilonYZ(
+            std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtDarcyVelocityX(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtDarcyVelocityY(
+        std::vector<double>& cache) const = 0;
+
+    virtual std::vector<double> const& getIntPtDarcyVelocityZ(
+        std::vector<double>& cache) const = 0;
+};
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
           typename IntegrationMethod, int DisplacementDim>
 class ThermoHydroMechanicsLocalAssembler
-    : public ProcessLib::LocalAssemblerInterface
+    : public ThermoHydroMechanicsLocalAssemblerInterface
 {
 public:
 /*    using ShapeMatricesType =
@@ -151,6 +202,7 @@ public:
     // Types for pressure.
     using ShapeMatricesTypePressure =
         ShapeMatrixPolicyType<ShapeFunctionPressure, DisplacementDim>;
+    using ShapeMatrices = typename ShapeMatricesTypeDisplacement::ShapeMatrices;
 
 
     ThermoHydroMechanicsLocalAssembler(ThermoHydroMechanicsLocalAssembler const&) = delete;
@@ -170,6 +222,7 @@ public:
             _integration_method.getNumberOfPoints();
 
         _ip_data.reserve(n_integration_points);
+        _secondary_data.N.resize(n_integration_points);
 
         auto const shape_matrices_u =
             initShapeMatrices<ShapeFunctionDisplacement, ShapeMatricesTypeDisplacement,
@@ -223,6 +276,7 @@ public:
 
             ip_data._N_p = shape_matrices_p[ip].N;
             ip_data._dNdx_p = shape_matrices_p[ip].dNdx;
+            _secondary_data.N[ip] = shape_matrices_u[ip].N;
         }
     }
 
@@ -377,7 +431,6 @@ public:
             KuT_coeff;
         KuT_coeff.setZero(displacement_size, temperature_size);
 
-
         double const& dt = _process_data.dt;
 
         SpatialPosition x_position;
@@ -404,7 +457,7 @@ public:
             //auto const& C_ice = _ip_data[ip].C_ice;
             //auto const& C_solid = _ip_data[ip].C_solid;
 
-            double const S =
+            double S =
                 _process_data.storage_coefficient(t, x_position)[0];
             double const K_over_mu =
                 _process_data.intrinsic_permeability(t, x_position)[0] /
@@ -422,15 +475,16 @@ public:
             auto const porosity = _process_data.porosity(t, x_position)[0];
             auto const& b = _process_data.specific_body_force;
 
+
             auto const rho_ir = 900 ;
             auto rho_i = 0.0;
             auto rho_f = 0.0;
             auto rho_s = 0.0;
-            auto const C_i = 2060 ;
-            auto const lambda_i = 2.14;
+            auto const C_i = 3090 ;
+            auto const lambda_i = 2.2;
             double phi_i = 0.0;
-            auto const sigmoid_coeff = 3;
-            auto const sigmoid_coeff1 = 3 ;
+            auto const sigmoid_coeff = 2;
+            auto const sigmoid_coeff1 = 2 ;
             auto const latent_heat = 334000;
             //auto const beta_i = 2.1e-5 ;
             auto beta_i = 0 ;
@@ -466,8 +520,8 @@ public:
            // Freezing process
             phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
             //std::cout << "phi_i: " << phi_i <<std::endl;
-            double multipl1 = beta_IF*phi_i ;
-            std::cout << "1: " << multipl1 <<std::endl;
+            double multipl1 = beta_IF/3*phi_i ;
+            //std::cout << "1: " << multipl1 <<std::endl;
             // Permeability change due to freezing is not considered in order to compare with analytical solution
             sigmoid_derive = Calcsigmoidderive(sigmoid_coeff1, porosity, T_int_pt); // dphi_i/dT
 
@@ -525,7 +579,7 @@ public:
                 .template segment<displacement_size>(displacement_index)
                 .noalias() -=
             //    B.transpose()* (identity2 * beta_s/3 * T0) ;
-                 B.transpose() * (C * identity2 * (beta_s/3) * T0 - multipl1* C * identity2) * w ;
+                 B.transpose() * (C * identity2 * (beta_s/3) * T0 - multipl1* C * identity2) * w + B.transpose() * alpha * identity2 * N_p*T*phi_i*0.0;
 
             //
             // displacement equation, temperature part (K_uT) Jacobian Matrix TODO beta is considered to be constant here, in fact is function of T
@@ -542,6 +596,7 @@ public:
             //
             // used for numerical Jacobian
         //    Kup.noalias() = B.transpose() * alpha * identity2 * N_p * w ;
+            // add cryo suction effect
             Kup_coeff.noalias() += B.transpose() * alpha * identity2 * N_p * w ;
 
 
@@ -550,6 +605,7 @@ public:
             //
             Kpp.noalias() += dNdx_p.transpose() * K_over_mu * dNdx_p * w ;
 
+            //S =  0.2/2e9;
             Mpp.noalias() += N_p.transpose() * S * N_p * w;
             //
             // fp
@@ -560,7 +616,8 @@ public:
             // pressure equation, temperature part (M_pT)
             //
          /*   MpT.noalias() += N_p.transpose() * (rho_ir*sigmoid_derive*(1/rho_fr - 1/rho_ir) - beta) * N_p * w / dt + N_p.transpose()*(rho_ir*sigmoid_derive*(1/rho_fr - 1/rho_ir))* N_p * w *T_dot ; */
-            MpT_coeff.noalias() += N_p.transpose() * (-rho_ir*sigmoid_derive*(1/rho_fr - 1/rho_ir) - beta) * N_p  * w ;
+            MpT_coeff.noalias() += N_p.transpose() * (rho_ir*sigmoid_derive*(1/rho_fr - 1/rho_ir) - beta) * N_p  * w ;
+
 
             //
             // pressure equation, displacement part.  (M_pu)
@@ -574,7 +631,7 @@ public:
             double lambda = (porosity - phi_i) * lambda_f + (1 - porosity) * lambda_s + phi_i * lambda_i;
             //KTT.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + dNdx_T.transpose() * velocity * N_p * rho_fr * C_f * 0) * w ;
             // TODO lambda is constant here, in fact it should be function of T
-            KTT_coeff.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* w ;
+            KTT_coeff.noalias() += (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f *0)* w ;
             //double heat_capacity = porosity * C_f * rho_fr + (1 - porosity) * C_s * rho_sr;
             MTT_coeff.noalias() += N_T.transpose() * heat_capacity * N_T * w;
 
@@ -626,7 +683,7 @@ public:
 
 
             // calculate numerical Jac
-                        double num_p = 1e-7;
+                        double num_p = 1e-9;
                         //double _Theta = 0.5;
                         Eigen::VectorXd num_vec = Eigen::VectorXd::Zero(local_matrix_size);
                         std::vector<double> local_perturbed = local_x;
@@ -650,7 +707,8 @@ public:
                             Kup = B.transpose() * alpha * identity2 * N_p * w ;
                             double T_int_pt_p = N_T*T_p;
                             phi_i = CalcIceVolFrac(T_int_pt_p, sigmoid_coeff, porosity);
-                            double multipl2 = phi_i*beta_IF;
+                            //S = 0.2/2e9 ;
+                            double multipl2 = phi_i*beta_IF/3;
                             //std::cout << "2: " << multipl2 <<std::endl;
                             // update the constitutive relation for displacement becasue of the increment
                             _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_p/*, phi_i*/);
@@ -675,17 +733,17 @@ public:
                                 .template block<temperature_size,1>(temperature_index,0)
                                 .noalias() =
                                 N_T.transpose() * heat_capacity * N_T * w * T_p/dt +
-                                   (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_f * C_f * 0)* T_p * w ;
+                                   (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_f * C_f *0)* T_p * w ;
                             local_b_p.template block<pressure_size,1>(pressure_index,0)
                                 .noalias() = N_p.transpose() * S * N_p * w * p_p/dt + dNdx_p.transpose() * K_over_mu * dNdx_p * w * p_p
-                                 + N_p.transpose()*(-rho_ir*sigmoid_derive*(1/rho_fr-1/rho_ir)-beta)*N_p* w * T_p/dt   + Kup.transpose() * u_p/dt
+                                 + N_p.transpose()*(rho_ir*sigmoid_derive*(1/rho_fr-1/rho_ir)-beta)*N_p* w * T_p/dt   + Kup.transpose() * u_p/dt
                                     - dNdx_p.transpose() * rho_f * K_over_mu * b * w;
                             local_b_p
                                 .template block<displacement_size,1>(displacement_index,0)
                                 .noalias() =
                                 (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w +
-                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 + multipl2*C * identity2 )* w -
-                                 B.transpose() * C * identity2 * (beta_s/3) * N_T * T_p * w - B.transpose() * alpha * identity2 * N_p *p_p * w;
+                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 + multipl2*C * identity2 )* w + B.transpose() * alpha * identity2 * N_p*T_p*phi_i*0.0-
+                                 B.transpose() * C * identity2 * (beta_s/3) * N_T * T_p * w - B.transpose() * alpha * identity2 * N_p * p_p * w;
                             //std::cout << "C: " << C << std::endl ;
                             local_perturbed[i] = local_x[i] - num_vec[i];
                             auto T_m = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
@@ -699,7 +757,8 @@ public:
                                                           displacement_size);
                             double T_int_pt_m = N_T*T_m;
                             phi_i = CalcIceVolFrac(T_int_pt_m, sigmoid_coeff, porosity);
-                            double multipl3 = phi_i*beta_IF ;
+                            //S = 0.2/2e9 ;
+                            double multipl3 = phi_i*beta_IF/3 ;
                             //std::cout << "3: " << multipl3 <<std::endl;
                             // update the constitutive relation for displacement becasue of the increment
                             _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_m/*, phi_i*/);
@@ -722,17 +781,17 @@ public:
                                 .template block<temperature_size,1>(temperature_index,0)
                                 .noalias() =
                                 N_T.transpose() * heat_capacity * N_T * w * T_m/dt +
-                                    (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f * 0)* T_m * w ;
+                                    (dNdx_T.transpose() * lambda * dNdx_T + N_T.transpose() * velocity.transpose() * dNdx_T * rho_fr * C_f*0 )* T_m * w ;
                             local_b_m.template block<pressure_size,1>(pressure_index,0)
                                 .noalias() = N_p.transpose() * S * N_p * w * p_m/dt + dNdx_p.transpose() * K_over_mu * dNdx_p * w * p_m  +
-                                    N_p.transpose()*(-rho_ir*sigmoid_derive*(1/rho_fr-1/rho_ir)-beta)*N_p* w * T_m/dt  + Kup.transpose()* u_m/dt
+                                    N_p.transpose()*(rho_ir*sigmoid_derive*(1/rho_fr-1/rho_ir)-beta)*N_p* w * T_m/dt  + Kup.transpose()* u_m/dt
                                     - dNdx_p.transpose() * rho_f * K_over_mu * b * w;
                             local_b_m
                                 .template block<displacement_size,1>(displacement_index,0)
                                 .noalias() =
                                 (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w +
-                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 +  C * identity2 *multipl3) * w -
-                                 B.transpose() * C * identity2 * (beta_s/3) * N_T * T_m* w - B.transpose() * alpha * identity2 * N_p *p_m * w;
+                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 +  C * identity2 *multipl3) * w +B.transpose() * alpha * identity2 * N_p*T_m*phi_i*0.0-
+                                 B.transpose() * C * identity2 * (beta_s/3) * N_T * T_m* w - B.transpose() * alpha * identity2 * N_p *(p_m) * w;
                             local_perturbed[i] = local_x[i];
                             local_Jac_numerical.col(i).noalias() += (local_b_p - local_b_m) / (2.0 * num_vec[i]);
 
@@ -794,7 +853,7 @@ public:
             Kpp * p + Mpp * p_dot + MpT_coeff * T_dot + Kup_coeff.transpose() * u_dot;
 
 
-        // displacement equation (f_u) ref = 0 case
+        // displacement equation (f_u) ref = 0 case  (freezing cyro suction pressure)
         local_rhs.template segment<displacement_size>(displacement_index)
             .noalias() += Kup_coeff* p + KuT_coeff * T  ;
 
@@ -803,7 +862,7 @@ public:
             .noalias() -= KTT_coeff * T + MTT_coeff * T_dot;
 
 
-        local_Jac = local_Jac_numerical*5  ;
+        local_Jac = local_Jac_numerical*12  ;
        // local_rhs = local_rhs ;
 
 
@@ -822,7 +881,181 @@ public:
         }
     }
 
+
+    void postTimestepConcrete(std::vector<double> const& local_x) override
+         {
+             double const& t = _process_data.t;
+
+             auto p =
+                 Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                     pressure_size> const>(local_x.data() + pressure_index,
+                                           pressure_size);
+             using GlobalDimVectorType =
+                 typename ShapeMatricesTypePressure::GlobalDimVectorType;
+
+             unsigned const n_integration_points =
+                 _integration_method.getNumberOfPoints();
+
+             SpatialPosition x_position;
+             x_position.setElementID(_element.getID());
+             for (unsigned ip = 0; ip < n_integration_points; ip++)
+             {
+                 x_position.setIntegrationPoint(ip);
+                 double const K_over_mu =
+                     _process_data.intrinsic_permeability(t, x_position)[0] /
+                     _process_data.fluid_viscosity(t, x_position)[0];
+
+                 auto const rho_fr = _process_data.fluid_density(t, x_position)[0];
+                 auto const& b = _process_data.specific_body_force;
+
+                 // Compute the velocity
+                 auto const& dNdx_p = _ip_data[ip]._dNdx_p;
+                 GlobalDimVectorType const darcy_velocity = -K_over_mu * dNdx_p * p
+                 -K_over_mu* rho_fr* b;
+                 for (unsigned d = 0; d < DisplacementDim; ++d)
+                 {
+                     _darcy_velocities[d][ip] = darcy_velocity[d];
+                 }
+             }
+         }
+
+    Eigen::Map<const Eigen::RowVectorXd> getShapeMatrix(
+        const unsigned integration_point) const override
+    {
+        auto const& N = _secondary_data.N[integration_point];
+
+        // assumes N is stored contiguously in memory
+        return Eigen::Map<const Eigen::RowVectorXd>(N.data(), N.size());
+    }
+
+    std::vector<double> const& getIntPtSigmaXX(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtSigma(cache, 0);
+    }
+
+    std::vector<double> const& getIntPtSigmaYY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtSigma(cache, 1);
+    }
+
+    std::vector<double> const& getIntPtSigmaZZ(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtSigma(cache, 2);
+    }
+
+    std::vector<double> const& getIntPtSigmaXY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtSigma(cache, 3);
+    }
+
+    std::vector<double> const& getIntPtSigmaXZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtSigma(cache, 4);
+    }
+
+    std::vector<double> const& getIntPtSigmaYZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtSigma(cache, 5);
+    }
+
+    std::vector<double> const& getIntPtEpsilonXX(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 0);
+    }
+
+    std::vector<double> const& getIntPtEpsilonYY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 1);
+    }
+
+    std::vector<double> const& getIntPtEpsilonZZ(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 2);
+    }
+
+    std::vector<double> const& getIntPtEpsilonXY(
+        std::vector<double>& cache) const override
+    {
+        return getIntPtEpsilon(cache, 3);
+    }
+
+    std::vector<double> const& getIntPtEpsilonXZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtEpsilon(cache, 4);
+    }
+
+    std::vector<double> const& getIntPtEpsilonYZ(
+        std::vector<double>& cache) const override
+    {
+        assert(DisplacementDim == 3);
+        return getIntPtEpsilon(cache, 5);
+    }
+
+    std::vector<double> const& getIntPtDarcyVelocityX(
+             std::vector<double>& /*cache*/) const override
+    {
+         assert(_darcy_velocities.size() > 0);
+         return _darcy_velocities[0];
+    }
+
+    std::vector<double> const& getIntPtDarcyVelocityY(
+            std::vector<double>& /*cache*/) const override
+    {
+         assert(_darcy_velocities.size() > 1);
+         return _darcy_velocities[1];
+    }
+
+    std::vector<double> const& getIntPtDarcyVelocityZ(
+    std::vector<double>& /*cache*/) const override
+    {
+         assert(_darcy_velocities.size() > 2);
+         return _darcy_velocities[2];
+    }
+
+
 private:
+
+    std::vector<double> const& getIntPtSigma(std::vector<double>& cache,
+                                                 std::size_t const component) const
+        {
+            cache.clear();
+            cache.reserve(_ip_data.size());
+
+            for (auto const& ip_data : _ip_data) {
+                if (component < 3)  // xx, yy, zz components
+                    cache.push_back(ip_data.sigma_eff[component]);
+                else    // mixed xy, yz, xz components
+                    cache.push_back(ip_data.sigma_eff[component] / std::sqrt(2));
+            }
+
+            return cache;
+        }
+        std::vector<double> const& getIntPtEpsilon(
+            std::vector<double>& cache, std::size_t const component) const
+        {
+            cache.clear();
+            cache.reserve(_ip_data.size());
+
+            for (auto const& ip_data : _ip_data) {
+                cache.push_back(ip_data.eps[component]);
+            }
+
+            return cache;
+        }
+
     ThermoHydroMechanicsProcessData<DisplacementDim>& _process_data;
 
     using BMatricesType =
@@ -835,6 +1068,11 @@ private:
 
     IntegrationMethod _integration_method;
     MeshLib::Element const& _element;
+    SecondaryData<typename ShapeMatrices::ShapeType> _secondary_data;
+    std::vector<std::vector<double>> _darcy_velocities =
+    std::vector<std::vector<double>>(
+              DisplacementDim,
+    std::vector<double>(_integration_method.getNumberOfPoints()));
 
     static const int temperature_index = 0;
     static const int temperature_size = ShapeFunctionPressure::NPOINTS;

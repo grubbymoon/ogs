@@ -88,6 +88,9 @@ void constructDofTable() override
     //std::cout << *_local_to_global_index_map << "\n";
 
 }
+
+    using LocalAssemblerInterface = ThermoHydroMechanicsLocalAssemblerInterface;
+
     void initializeConcreteProcess(
         NumLib::LocalToGlobalIndexMap const& dof_table,
         MeshLib::Mesh const& mesh,
@@ -100,6 +103,101 @@ void constructDofTable() override
             getProcessVariables()[2].get().getShapeFunctionOrder(),
             _local_assemblers, mesh.isAxiallySymmetric(), integration_order,
             _process_data);
+
+        // TODO move the two data members somewhere else.
+        // for extrapolation of secondary variables
+           std::vector<std::unique_ptr<MeshLib::MeshSubsets>>
+               all_mesh_subsets_single_component;
+           all_mesh_subsets_single_component.emplace_back(
+               new MeshLib::MeshSubsets(_mesh_subset_all_nodes.get()));
+           _local_to_global_index_map_single_component.reset(
+               new NumLib::LocalToGlobalIndexMap(
+           std::move(all_mesh_subsets_single_component),
+           // by location order is needed for output
+           NumLib::ComponentOrder::BY_LOCATION));
+
+        Base::_secondary_variables.addSecondaryVariable(
+                   "sigma_xx", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaXX));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "sigma_yy", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaYY));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "sigma_zz", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaZZ));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "sigma_xy", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaXY));
+
+               if (DisplacementDim == 3) {
+                   Base::_secondary_variables.addSecondaryVariable(
+                       "sigma_xz", 1,
+                       makeExtrapolator(
+                           getExtrapolator(), _local_assemblers,
+                           &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaXZ));
+
+                   Base::_secondary_variables.addSecondaryVariable(
+                       "sigma_yz", 1,
+                       makeExtrapolator(
+                           getExtrapolator(), _local_assemblers,
+                           &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtSigmaYZ));
+               }
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "epsilon_xx", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonXX));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "epsilon_yy", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonYY));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "epsilon_zz", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonZZ));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "epsilon_xy", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtEpsilonXY));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                   "velocity_x", 1,
+                   makeExtrapolator(
+                       getExtrapolator(), _local_assemblers,
+                       &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityX));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                       "velocity_y", 1,
+                            makeExtrapolator(
+                                getExtrapolator(), _local_assemblers,
+                                &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityY));
+
+               Base::_secondary_variables.addSecondaryVariable(
+                      "velocity_z", 1,
+                      makeExtrapolator(
+                          getExtrapolator(), _local_assemblers,
+                          &ThermoHydroMechanicsLocalAssemblerInterface::getIntPtDarcyVelocityZ));
+
+
+
     }
 
     void assembleConcreteProcess(const double t, GlobalVector const& x,
@@ -141,7 +239,7 @@ void constructDofTable() override
         _process_data.t = t;
 
         GlobalExecutor::executeMemberOnDereferenced(
-            &LocalAssemblerInterface::preTimestep, _local_assemblers,
+            &ThermoHydroMechanicsLocalAssemblerInterface::preTimestep, _local_assemblers,
             *_local_to_global_index_map, x, t, dt);
     }
 
@@ -150,7 +248,7 @@ void constructDofTable() override
         DBUG("PostTimestep ThermoHydroMechanicsProcess.");
 
         GlobalExecutor::executeMemberOnDereferenced(
-            &LocalAssemblerInterface::postTimestep, _local_assemblers,
+            &ThermoHydroMechanicsLocalAssemblerInterface::postTimestep, _local_assemblers,
             *_local_to_global_index_map, x);
     }
 
@@ -159,7 +257,10 @@ private:
     std::unique_ptr<MeshLib::MeshSubset const> _mesh_subset_base_nodes;
     ThermoHydroMechanicsProcessData<DisplacementDim> _process_data;
 
-    std::vector<std::unique_ptr<LocalAssemblerInterface>> _local_assemblers;
+
+    std::vector<std::unique_ptr<ThermoHydroMechanicsLocalAssemblerInterface>> _local_assemblers;
+    std::unique_ptr<NumLib::LocalToGlobalIndexMap>
+           _local_to_global_index_map_single_component;
 };
 
 }  // namespace ThermoHydroMechanics
