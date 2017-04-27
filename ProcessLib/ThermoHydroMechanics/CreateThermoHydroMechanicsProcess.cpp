@@ -241,6 +241,15 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
     DBUG("Use \'%s\' as reference temperature parameter.",
          reference_temperature.name.c_str());
 
+    // newton parameter
+    auto& newton_factor = findParameter<double>(
+        config,
+        //! \ogs_file_param_special{process__THERMO_HYDRO_MECHANICS_newton_parameter}
+        "newton_factor",
+        parameters, 1);
+    DBUG("Use \'%s\' as newton factor parameter.",
+         newton_factor.name.c_str());
+
     // Specific body force
     Eigen::Matrix<double, DisplacementDim, 1> specific_body_force;
     {
@@ -264,7 +273,7 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
         solid_density,       fluid_density,          beta_solid,
         beta_fluid,          fluid_heat_capacity,    solid_heat_capacity,
         lambda_s,            lambda_f,            reference_temperature,
-        specific_body_force
+        newton_factor,       specific_body_force
     };
 
     SecondaryVariableCollection secondary_variables;

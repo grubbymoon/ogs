@@ -78,13 +78,14 @@ static double Relative_permeability(double phi_i, double porosity)
     double Omega = 50 ;
     double Kr;
     Kr = pow(10, -Omega*porosity*(1-Sw));
-    if (Kr < pow(10, -6))
-            Kr = pow(10, -6);
+    if (Kr < pow(10, -4))
+            Kr = pow(10, -4);
     return Kr;
 }
 
 static double Hydraulic_conductivity(double Kint, double Kr, double mu)
 {
+    Kr = 1.0 ;
     return Kint*Kr/mu;
 }
 

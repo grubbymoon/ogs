@@ -435,6 +435,7 @@ public:
 
         SpatialPosition x_position;
         x_position.setElementID(_element.getID());
+        auto const newton_factor = _process_data.newton_factor(t, x_position)[0];
 
         unsigned const n_integration_points =
             _integration_method.getNumberOfPoints();
@@ -459,9 +460,11 @@ public:
 
             double S =
                 _process_data.storage_coefficient(t, x_position)[0];
-            double const K_over_mu =
-                _process_data.intrinsic_permeability(t, x_position)[0] /
-                _process_data.fluid_viscosity(t, x_position)[0];
+            //double const K_over_mu =
+              //  _process_data.intrinsic_permeability(t, x_position)[0] /
+              //  _process_data.fluid_viscosity(t, x_position)[0];
+            double const intrinsic_permeability = _process_data.intrinsic_permeability(t, x_position)[0] ;
+            double const viscosity0 = _process_data.fluid_viscosity(t, x_position)[0];
             double const beta_s = _process_data.beta_solid(t, x_position)[0];
             double const beta_f = _process_data.beta_fluid(t, x_position)[0];
             double const lambda_f = _process_data.lambda_f(t, x_position)[0];
@@ -476,11 +479,11 @@ public:
             auto const& b = _process_data.specific_body_force;
 
 
-            auto const rho_ir = 900 ;
+            auto const rho_ir = 920 ;
             auto rho_i = 0.0;
             auto rho_f = 0.0;
             auto rho_s = 0.0;
-            auto const C_i = 3090 ;
+            auto const C_i = 2090 ;
             auto const lambda_i = 2.2;
             double phi_i = 0.0;
             auto const sigmoid_coeff = 2;
@@ -522,8 +525,12 @@ public:
             //std::cout << "phi_i: " << phi_i <<std::endl;
             double multipl1 = beta_IF/3*phi_i ;
             //std::cout << "1: " << multipl1 <<std::endl;
-            // Permeability change due to freezing is not considered in order to compare with analytical solution
+
             sigmoid_derive = Calcsigmoidderive(sigmoid_coeff1, porosity, T_int_pt); // dphi_i/dT
+            double Kr = Relative_permeability(phi_i, porosity);
+            double Real_hydraulic_conductivity = Hydraulic_conductivity(intrinsic_permeability, Kr, viscosity0);
+            double K_over_mu = Real_hydraulic_conductivity ;
+            //std::cout << K_over_mu << std::endl;
 
             //sigmoid_derive_second = Calcsigmoidsecondderive(sigmoid_coeff, porosity, T_int_pt);
             // lambda to be constant for now
@@ -683,7 +690,7 @@ public:
 
 
             // calculate numerical Jac
-                        double num_p = 1e-9;
+                        double num_p = 1e-7;
                         //double _Theta = 0.5;
                         Eigen::VectorXd num_vec = Eigen::VectorXd::Zero(local_matrix_size);
                         std::vector<double> local_perturbed = local_x;
@@ -707,6 +714,9 @@ public:
                             Kup = B.transpose() * alpha * identity2 * N_p * w ;
                             double T_int_pt_p = N_T*T_p;
                             phi_i = CalcIceVolFrac(T_int_pt_p, sigmoid_coeff, porosity);
+                            Kr = Relative_permeability(phi_i, porosity);
+                            Real_hydraulic_conductivity = Hydraulic_conductivity(intrinsic_permeability, Kr, viscosity0);
+                            K_over_mu = Real_hydraulic_conductivity ;
                             //S = 0.2/2e9 ;
                             double multipl2 = phi_i*beta_IF/3;
                             //std::cout << "2: " << multipl2 <<std::endl;
@@ -757,6 +767,9 @@ public:
                                                           displacement_size);
                             double T_int_pt_m = N_T*T_m;
                             phi_i = CalcIceVolFrac(T_int_pt_m, sigmoid_coeff, porosity);
+                            Kr = Relative_permeability(phi_i, porosity);
+                            Real_hydraulic_conductivity = Hydraulic_conductivity(intrinsic_permeability, Kr, viscosity0);
+                            K_over_mu = Real_hydraulic_conductivity ;
                             //S = 0.2/2e9 ;
                             double multipl3 = phi_i*beta_IF/3 ;
                             //std::cout << "3: " << multipl3 <<std::endl;
@@ -862,7 +875,7 @@ public:
             .noalias() -= KTT_coeff * T + MTT_coeff * T_dot;
 
 
-        local_Jac = local_Jac_numerical*12  ;
+        local_Jac = local_Jac_numerical*newton_factor  ;
        // local_rhs = local_rhs ;
 
 
@@ -890,6 +903,11 @@ public:
                  Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
                      pressure_size> const>(local_x.data() + pressure_index,
                                            pressure_size);
+             auto T =
+                 Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                     temperature_size> const>(local_x.data() + temperature_index,
+                                           temperature_size);
+
              using GlobalDimVectorType =
                  typename ShapeMatricesTypePressure::GlobalDimVectorType;
 
@@ -901,14 +919,25 @@ public:
              for (unsigned ip = 0; ip < n_integration_points; ip++)
              {
                  x_position.setIntegrationPoint(ip);
-                 double const K_over_mu =
-                     _process_data.intrinsic_permeability(t, x_position)[0] /
-                     _process_data.fluid_viscosity(t, x_position)[0];
+               //  double const K_over_mu =
+               //      _process_data.intrinsic_permeability(t, x_position)[0] /
+               //      _process_data.fluid_viscosity(t, x_position)[0];
+                 double const intrinsic_permeability = _process_data.intrinsic_permeability(t, x_position)[0] ;
+                 double const viscosity0 = _process_data.fluid_viscosity(t, x_position)[0];
 
                  auto const rho_fr = _process_data.fluid_density(t, x_position)[0];
                  auto const& b = _process_data.specific_body_force;
+                 auto const porosity = _process_data.porosity(t, x_position)[0];
 
                  // Compute the velocity
+                 auto const& N_T = _ip_data[ip]._N_p;
+                 auto const sigmoid_coeff = 2;
+                 auto T_int_pt = N_T * T ;
+                 double phi_i = CalcIceVolFrac(T_int_pt, sigmoid_coeff, porosity);
+                 double Kr = Relative_permeability(phi_i, porosity);
+                 double Real_hydraulic_conductivity = Hydraulic_conductivity(intrinsic_permeability, Kr, viscosity0);
+                 auto K_over_mu = Real_hydraulic_conductivity ;
+
                  auto const& dNdx_p = _ip_data[ip]._dNdx_p;
                  GlobalDimVectorType const darcy_velocity = -K_over_mu * dNdx_p * p
                  -K_over_mu* rho_fr* b;

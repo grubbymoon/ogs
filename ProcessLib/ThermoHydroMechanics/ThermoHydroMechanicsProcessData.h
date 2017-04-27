@@ -40,6 +40,7 @@ struct ThermoHydroMechanicsProcessData
         Parameter<double> const& lambda_s_,
         Parameter<double> const& lambda_f_,
         Parameter<double> const& reference_temperature_,
+        Parameter<double> const& newton_factor_,
         Eigen::Matrix<double, DisplacementDim, 1> const& specific_body_force_)
         : material{std::move(material_)},
           intrinsic_permeability(intrinsic_permeability_),
@@ -56,6 +57,7 @@ struct ThermoHydroMechanicsProcessData
           lambda_s(lambda_s_),
           lambda_f(lambda_f_),
           reference_temperature(reference_temperature_),
+          newton_factor(newton_factor_),
           specific_body_force(specific_body_force_)
     {
     }
@@ -76,6 +78,7 @@ struct ThermoHydroMechanicsProcessData
           lambda_s(other.lambda_s),
           lambda_f(other.lambda_f),
           reference_temperature(other.reference_temperature),
+          newton_factor(other.newton_factor),
           specific_body_force(other.specific_body_force),
           dt(other.dt),
           t(other.t)
@@ -107,6 +110,7 @@ struct ThermoHydroMechanicsProcessData
     Parameter<double> const& lambda_s;
     Parameter<double> const& lambda_f;
     Parameter<double> const& reference_temperature;
+    Parameter<double> const& newton_factor;
     /// Specific body forces applied to solid and fluid.
     /// It is usually used to apply gravitational forces.
     /// A vector of displacement dimension's length.
