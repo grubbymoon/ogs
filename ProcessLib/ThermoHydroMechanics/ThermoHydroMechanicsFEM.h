@@ -586,7 +586,7 @@ public:
                 .template segment<displacement_size>(displacement_index)
                 .noalias() -=
             //    B.transpose()* (identity2 * beta_s/3 * T0) ;
-                 B.transpose() * (C * identity2 * (beta_s/3) * T0 - multipl1* C * identity2) * w + B.transpose() * alpha * identity2 * N_p*T*phi_i*0.0;
+                 B.transpose() * (C * identity2 * (beta_s/3) * T0 - multipl1* C * identity2) * w ;
 
             //
             // displacement equation, temperature part (K_uT) Jacobian Matrix TODO beta is considered to be constant here, in fact is function of T
@@ -752,7 +752,7 @@ public:
                                 .template block<displacement_size,1>(displacement_index,0)
                                 .noalias() =
                                 (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w +
-                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 + multipl2*C * identity2 )* w + B.transpose() * alpha * identity2 * N_p*T_p*phi_i*0.0-
+                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 + multipl2*C * identity2 )* w -
                                  B.transpose() * C * identity2 * (beta_s/3) * N_T * T_p * w - B.transpose() * alpha * identity2 * N_p * p_p * w;
                             //std::cout << "C: " << C << std::endl ;
                             local_perturbed[i] = local_x[i] - num_vec[i];
@@ -803,7 +803,7 @@ public:
                                 .template block<displacement_size,1>(displacement_index,0)
                                 .noalias() =
                                 (B.transpose() * sigma_eff - N_u.transpose() * rho * b) * w +
-                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 +  C * identity2 *multipl3) * w +B.transpose() * alpha * identity2 * N_p*T_m*phi_i*0.0-
+                                    B.transpose() * (C * identity2 * (beta_s/3) * T0 +  C * identity2 *multipl3) * w -
                                  B.transpose() * C * identity2 * (beta_s/3) * N_T * T_m* w - B.transpose() * alpha * identity2 * N_p *(p_m) * w;
                             local_perturbed[i] = local_x[i];
                             local_Jac_numerical.col(i).noalias() += (local_b_p - local_b_m) / (2.0 * num_vec[i]);
