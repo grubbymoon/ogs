@@ -16,7 +16,8 @@
 #include <vector>
 
 #include "MaterialLib/SolidModels/KelvinVector.h"
-#include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
+//#include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
+#include "MaterialLib/SolidModels/FreezingLinearElasticIsotropic.h"
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
 #include "NumLib/Extrapolation/ExtrapolatableElement.h"
 #include "NumLib/Fem/FiniteElement/TemplateIsoparametric.h"
@@ -41,7 +42,7 @@ template <typename BMatricesType, typename ShapeMatrixTypeDisplacement,
 struct IntegrationPointData final
 {
     explicit IntegrationPointData(
-        MaterialLib::Solids::MechanicsBase<DisplacementDim>& solid_material)
+        MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>& solid_material)
         : solid_material(solid_material),
           material_state_variables(
               solid_material.createMaterialStateVariables())
@@ -59,8 +60,8 @@ struct IntegrationPointData final
           eps_prev(std::move(other.eps_prev)),
           solid_material(other.solid_material),
           material_state_variables(std::move(other.material_state_variables)),
-          //C_solid(std::move.C_solid)
-          //C_ice(std::move.C_ice)
+          C_solid(std::move.C_solid)
+          C_ice(std::move.C_ice)
           C(std::move(other.C)),
           integration_weight(std::move(other.integration_weight))
     {
@@ -77,14 +78,14 @@ struct IntegrationPointData final
     typename ShapeMatricesTypePressure::NodalRowVectorType _N_p;
     typename ShapeMatricesTypePressure::GlobalDimNodalMatrixType _dNdx_p;
 
-    MaterialLib::Solids::MechanicsBase<DisplacementDim>& solid_material;
-    std::unique_ptr<typename MaterialLib::Solids::MechanicsBase<
+    MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>& solid_material;
+    std::unique_ptr<typename MaterialLib::Solids::MechanicsFreezingBase<
         DisplacementDim>::MaterialStateVariables>
         material_state_variables;
 
     typename BMatricesType::KelvinMatrixType C;
-   // typename BMatricesType::KelvinMatrixType C_solid;
-   // typename BMatricesType::KelvinMatrixType C_ice;
+    typename BMatricesType::KelvinMatrixType C_solid;
+    typename BMatricesType::KelvinMatrixType C_ice;
     double integration_weight;
 
     void pushBackState()
@@ -98,13 +99,12 @@ struct IntegrationPointData final
     void updateConstitutiveRelation(double const t,
                                     SpatialPosition const& x_position,
                                     double const dt,
-                                    DisplacementVectorType const& u
-                                    /*double phi_i*/)
+                                    DisplacementVectorType const& u,
+                                    double const phi_i)
     {
         eps.noalias() = b_matrices * u;
-        solid_material.computeConstitutiveRelation(
-            t, x_position, dt, eps_prev, eps, sigma_eff_prev, sigma_eff, /*C_solid, C_ice,*/ C,/* phi_i,*/
-            *material_state_variables);
+        solid_material.computeFreezingConstitutiveRelation(
+            t, x_position, dt, eps_prev, eps, sigma_eff_prev, sigma_eff, C_solid, C_ice, C, phi_i, *material_state_variables);
     }
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
@@ -261,8 +261,8 @@ public:
             ip_data.eps.resize(kelvin_vector_size);
             ip_data.eps_prev.resize(kelvin_vector_size);
             ip_data.C.resize(kelvin_vector_size, kelvin_vector_size);
-            //ip_data.C_ice.resize(kelvin_vector_size, kelvin_vector_size);
-            //ip_data.C_solid.resize(kelvin_vector_size, kelvin_vector_size);
+            ip_data.C_ice.resize(kelvin_vector_size, kelvin_vector_size);
+            ip_data.C_solid.resize(kelvin_vector_size, kelvin_vector_size);
 
             //ip_data._N_u = shape_matrices_u[ip].N;
             ip_data.N_u = ShapeMatricesTypeDisplacement::template MatrixType<
@@ -455,8 +455,8 @@ public:
             auto const& sigma_eff = _ip_data[ip].sigma_eff;
 
             auto const& C = _ip_data[ip].C;
-            //auto const& C_ice = _ip_data[ip].C_ice;
-            //auto const& C_solid = _ip_data[ip].C_solid;
+            auto const& C_ice = _ip_data[ip].C_ice;
+            auto const& C_solid = _ip_data[ip].C_solid;
 
             double S =
                 _process_data.storage_coefficient(t, x_position)[0];
@@ -538,9 +538,9 @@ public:
             heat_capacity =
                     EquaHeatCapacity(phi_i, rho_fr, rho_sr, rho_ir,
             C_s, C_i, C_f, porosity, sigmoid_derive, latent_heat);
-            //std::cout << "C_ice: "<< C_ice << std::endl;
-            //std::cout << "C_solid: "<< C_solid << std::endl;
-           // std::cout << "C: "<< C << std::endl;
+            std::cout << "C_ice: "<< C_ice << std::endl;
+            std::cout << "C_solid: "<< C_solid << std::endl;
+            std::cout << "C: "<< C << std::endl;
             // dC(T)/dT
     //        auto const C_derive =  sigmoid_derive * C_ice;
 
@@ -721,7 +721,7 @@ public:
                             double multipl2 = phi_i*beta_IF/3;
                             //std::cout << "2: " << multipl2 <<std::endl;
                             // update the constitutive relation for displacement becasue of the increment
-                            _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_p/*, phi_i*/);
+                            _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_p, phi_i);
                             // thermal expansion
                             double delta_T_p(T_int_pt_p - T0);
                             rho_f = rho_fr*(1 - beta_f * delta_T_p);
@@ -774,7 +774,7 @@ public:
                             double multipl3 = phi_i*beta_IF/3 ;
                             //std::cout << "3: " << multipl3 <<std::endl;
                             // update the constitutive relation for displacement becasue of the increment
-                            _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_m/*, phi_i*/);
+                            _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u_m, phi_i);
                             // thermal expansion
                             double delta_T_m(T_int_pt_m - T0);
                             rho_f = rho_fr*(1 - beta_f * delta_T_m);

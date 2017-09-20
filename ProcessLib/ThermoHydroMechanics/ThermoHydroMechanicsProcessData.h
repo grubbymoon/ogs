@@ -24,7 +24,7 @@ template <int DisplacementDim>
 struct ThermoHydroMechanicsProcessData
 {
     ThermoHydroMechanicsProcessData(
-        std::unique_ptr<MaterialLib::Solids::MechanicsBase<DisplacementDim>>&&
+        std::unique_ptr<MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>>&&
             material_,
         Parameter<double> const& intrinsic_permeability_,
         Parameter<double> const& storage_coefficient_,
@@ -94,7 +94,7 @@ struct ThermoHydroMechanicsProcessData
     //! Assignments are not needed.
     void operator=(ThermoHydroMechanicsProcessData&&) = delete;
 
-    std::unique_ptr<MaterialLib::Solids::MechanicsBase<DisplacementDim>>
+    std::unique_ptr<MaterialLib::Solids::MechanicsFreezingBase<DisplacementDim>>
         material;
     Parameter<double> const& intrinsic_permeability;
     Parameter<double> const& storage_coefficient;
