@@ -98,6 +98,9 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
                          std::vector<double> &local_Jac_data) {
   assert(local_x.size() == pressure_size + displacement_size);
 
+  auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+      temperature_size> const>(local_x.data() + temperature_index, temperature_size);
+
   auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
       pressure_size> const>(local_x.data() + pressure_index, pressure_size);
 
@@ -105,6 +108,11 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
       Eigen::Map<typename ShapeMatricesTypeDisplacement::template VectorType<
           displacement_size> const>(local_x.data() + displacement_index,
                                     displacement_size);
+
+  auto T_dot =
+      Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+          temperature_size> const>(local_xdot.data() + temperature_index,
+                                temperature_size);
 
   auto p_dot =
       Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
@@ -127,19 +135,39 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
           displacement_size + pressure_size>>(
       local_rhs_data, displacement_size + pressure_size);
 
-  typename ShapeMatricesTypePressure::NodalMatrixType laplace_p =
-      ShapeMatricesTypePressure::NodalMatrixType::Zero(pressure_size,
-                                                       pressure_size);
+  typename ShapeMatricesTypePressure::NodalMatrixType MTT;
+          MTT.setZero(temperature_size, temperature_size);
 
-  typename ShapeMatricesTypePressure::NodalMatrixType storage_p =
-      ShapeMatricesTypePressure::NodalMatrixType::Zero(pressure_size,
-                                                       pressure_size);
+          typename ShapeMatricesTypePressure::NodalMatrixType KTT_coeff;
+          KTT_coeff.setZero(temperature_size, temperature_size);
 
-  typename ShapeMatricesTypeDisplacement::template MatrixType<displacement_size,
-                                                              pressure_size>
-      Kup = ShapeMatricesTypeDisplacement::template MatrixType<
-          displacement_size, pressure_size>::Zero(displacement_size,
-                                                  pressure_size);
+          typename ShapeMatricesTypePressure::NodalMatrixType KTT;
+          KTT.setZero(temperature_size, temperature_size);
+
+          typename ShapeMatricesTypePressure::NodalMatrixType KTp;
+          KTp.setZero(temperature_size, pressure_size);
+
+          typename ShapeMatricesTypePressure::NodalMatrixType KTp_coeff;
+          KTp_coeff.setZero(temperature_size, pressure_size);
+
+          typename ShapeMatricesTypePressure::NodalMatrixType laplace_p;
+          laplace_p.setZero(pressure_size, pressure_size);
+
+          typename ShapeMatricesTypePressure::NodalMatrixType storage_p;
+          storage_p.setZero(pressure_size, pressure_size);
+
+          typename ShapeMatricesTypePressure::NodalMatrixType storage_T;
+          storage_T.setZero(pressure_size, temperature_size);
+
+          typename ShapeMatricesTypeDisplacement::template MatrixType<
+              displacement_size, pressure_size>
+              Kup;
+          Kup.setZero(displacement_size, pressure_size);
+          typename ShapeMatricesTypeDisplacement::template MatrixType<
+              displacement_size, temperature_size>
+              KuT;
+          KuT.setZero(displacement_size, temperature_size);
+
 
   double const &dt = _process_data.dt;
 
@@ -172,17 +200,41 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     auto const &sigma_eff = _ip_data[ip].sigma_eff;
 
     double const S = _process_data.specific_storage(t, x_position)[0];
-    double const K_over_mu =
-        _process_data.intrinsic_permeability(t, x_position)[0] /
-        _process_data.fluid_viscosity(t, x_position)[0];
-    auto const alpha = _process_data.biot_coefficient(t, x_position)[0];
-    auto const rho_sr = _process_data.solid_density(t, x_position)[0];
-    auto const rho_fr = _process_data.fluid_density(t, x_position)[0];
-    auto const porosity = _process_data.porosity(t, x_position)[0];
-    auto const &b = _process_data.specific_body_force;
+                double const K_over_mu =
+                    _process_data.intrinsic_permeability(t, x_position)[0] /
+                    _process_data.getFluidViscosity(p_int_pt, T_int_pt);
+                double const alpha_s =
+                    _process_data.solid_linear_thermal_expansion_coefficient(
+                        t, x_position)[0];
+                double const beta_f =
+                    _process_data.fluid_volumetric_thermal_expansion_coefficient(
+                        t, x_position)[0];
+                double const lambda_f =
+                    _process_data.getFluidThermalConductivity(p_int_pt, T_int_pt);
+                double const lambda_s =
+                    _process_data.solid_thermal_conductivity(t, x_position)[0];
+                double const C_f =
+                    _process_data.getFluidHeatCapacity(p_int_pt, T_int_pt);
+                double const C_s =
+                    _process_data.solid_specific_heat_capacity(t, x_position)[0];
+                double const T0 =
+                    _process_data.reference_temperature(t, x_position)[0];
+                auto const alpha = _process_data.biot_coefficient(t, x_position)[0];
+                auto const rho_sr = _process_data.solid_density(t, x_position)[0];
+                auto const rho_f = _process_data.getFluidDensity(p_int_pt, T_int_pt);
+                auto const porosity = _process_data.porosity(t, x_position)[0];
+                auto const& b = _process_data.specific_body_force;
     auto const &identity2 = MathLib::KelvinVector::Invariants<
         MathLib::KelvinVector::KelvinVectorDimensions<DisplacementDim>::value>::
         identity2;
+
+    double const delta_T(T_int_pt - T0);
+                double const thermal_strain = alpha_s * delta_T;
+
+                double const rho_s = rho_sr * (1 - 3 * thermal_strain);
+
+                auto velocity = (-K_over_mu * dNdx_p * p).eval();
+                velocity += K_over_mu * rho_f * b;
 
     //
     // displacement equation, displacement part
@@ -196,56 +248,115 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
             displacement_index, displacement_index)
         .noalias() += B.transpose() * C * B * w;
 
-    double const rho = rho_sr * (1 - porosity) + porosity * rho_fr;
+    auto const rho = rho_s * (1 - porosity) + porosity * rho_f;
     local_rhs.template segment<displacement_size>(displacement_index)
         .noalias() -=
         (B.transpose() * sigma_eff - N_u_op.transpose() * rho * b) * w;
 
     //
-    // displacement equation, pressure part
+    // displacement equation, pressure part (K_up)
     //
     Kup.noalias() += B.transpose() * alpha * identity2 * N_p * w;
 
     //
-    // pressure equation, pressure part.
+    // pressure equation, pressure part (K_pp and M_pp).
     //
     laplace_p.noalias() += dNdx_p.transpose() * K_over_mu * dNdx_p * w;
 
     storage_p.noalias() += N_p.transpose() * S * N_p * w;
+    //
+    //  RHS, pressure part
+    //
+    local_rhs.template segment<pressure_size>(pressure_index)
+        .noalias() += dNdx_p.transpose() * rho_f * K_over_mu * b * w;
+    //
+    // pressure equation, temperature part (M_pT)
+    //
+    auto const beta = porosity * beta_f + (1 - porosity) * 3 * alpha_s;
+    storage_T.noalias() += N_T.transpose() * beta * N_T * w;
 
-    local_rhs.template segment<pressure_size>(pressure_index).noalias() +=
-        dNdx_p.transpose() * rho_fr * K_over_mu * b * w;
+    //
+    // pressure equation, displacement part.
+    //
+    // Reusing Kup.transpose().
+
+    //
+    // temperature equation, temperature part.
+    //
+    auto const lambda = porosity * lambda_f + (1 - porosity) * lambda_s;
+    KTT.noalias() +=
+        (dNdx_T.transpose() * lambda * dNdx_T +
+         dNdx_T.transpose() * velocity * N_p * rho_f * C_f) *
+        w;
+    // coefficient matrix which is used for caculating the residual
+    auto const heat_capacity =
+        porosity * C_f * rho_f + (1 - porosity) * C_s * rho_sr;
+    MTT.noalias() += N_T.transpose() * heat_capacity * N_T * w;
+
+    //
+    // temperature equation, pressure part
+    //
+    KTp.noalias() += K_over_mu * rho_f * C_f * N_T.transpose() *
+                     (dNdx_T * T).transpose() * dNdx_T * w;
 
     //
     // pressure equation, displacement part.
     //
     // Reusing Kup.transpose().
   }
-  // displacement equation, pressure part
-  local_Jac
-      .template block<displacement_size, pressure_size>(displacement_index,
-                                                        pressure_index)
-      .noalias() = -Kup;
+  // temperature equation, temperature part
+          local_Jac
+              .template block<temperature_size, temperature_size>(
+                  temperature_index, temperature_index)
+              .noalias() += KTT + MTT / dt;
 
-  // pressure equation, pressure part.
-  local_Jac
-      .template block<pressure_size, pressure_size>(pressure_index,
-                                                    pressure_index)
-      .noalias() = laplace_p + storage_p / dt;
+          // temperature equation, pressure part
+          local_Jac
+              .template block<temperature_size, pressure_size>(temperature_index,
+                                                               pressure_index)
+              .noalias() -= KTp;
+          // displacement equation, temperature part
+          local_Jac
+              .template block<displacement_size, temperature_size>(
+                  displacement_index, temperature_index)
+              .noalias() -= KuT;
 
-  // pressure equation, displacement part.
-  local_Jac
-      .template block<pressure_size, displacement_size>(pressure_index,
-                                                        displacement_index)
-      .noalias() = Kup.transpose() / dt;
+          // displacement equation, pressure part
+          local_Jac
+              .template block<displacement_size, pressure_size>(
+                  displacement_index, pressure_index)
+              .noalias() -= Kup;
 
-  // pressure equation
-  local_rhs.template segment<pressure_size>(pressure_index).noalias() -=
-      laplace_p * p + storage_p * p_dot + Kup.transpose() * u_dot;
+          // pressure equation, temperature part.
+          local_Jac
+              .template block<pressure_size, temperature_size>(pressure_index,
+                                                               temperature_index)
+              .noalias() -= storage_T / dt;
 
-  // displacement equation
-  local_rhs.template segment<displacement_size>(displacement_index).noalias() +=
-      Kup * p;
+          // pressure equation, pressure part.
+          local_Jac
+              .template block<pressure_size, pressure_size>(pressure_index,
+                                                            pressure_index)
+              .noalias() += laplace_p + storage_p / dt;
+
+          // pressure equation, displacement part.
+          local_Jac
+              .template block<pressure_size, displacement_size>(
+                  pressure_index, displacement_index)
+              .noalias() += Kup.transpose() / dt;
+
+          // pressure equation (f_p)
+          local_rhs.template segment<pressure_size>(pressure_index).noalias() -=
+              laplace_p * p + storage_p * p_dot - storage_T * T_dot +
+              Kup.transpose() * u_dot;
+
+          // displacement equation (f_u)
+          local_rhs.template segment<displacement_size>(displacement_index)
+              .noalias() += Kup * p;
+
+          // temperature equation (f_T)
+          local_rhs.template segment<temperature_size>(temperature_index)
+              .noalias() -= KTT * T + MTT * T_dot;
 }
 
 template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
@@ -274,6 +385,12 @@ ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
   auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
       pressure_size> const>(local_x.data() + pressure_index, pressure_size);
 
+  auto T =
+             Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+                 pressure_size> const>(local_x.data() + temperature_index,
+                                       temperature_size);
+
+
   unsigned const n_integration_points = _integration_method.getNumberOfPoints();
 
   SpatialPosition x_position;
@@ -282,15 +399,20 @@ ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     x_position.setIntegrationPoint(ip);
     double const K_over_mu =
         _process_data.intrinsic_permeability(t, x_position)[0] /
-        _process_data.fluid_viscosity(t, x_position)[0];
+        _process_data.getFluidViscosity(p_int_pt, T_int_pt);
 
-    auto const rho_fr = _process_data.fluid_density(t, x_position)[0];
-    auto const &b = _process_data.specific_body_force;
+    auto const rho_f =
+        _process_data.getFluidDensity(p_int_pt, T_int_pt);
+    auto const& b = _process_data.specific_body_force;
 
     // Compute the velocity
-    auto const &dNdx_p = _ip_data[ip].dNdx_p;
-    cache_matrix.col(ip).noalias() =
-        -K_over_mu * dNdx_p * p - K_over_mu * rho_fr * b;
+    auto const& dNdx_p = _ip_data[ip].dNdx_p;
+                GlobalDimVectorType const darcy_velocity =
+                    -K_over_mu * dNdx_p * p - K_over_mu * rho_f * b;
+                for (unsigned d = 0; d < DisplacementDim; ++d)
+                {
+                    _darcy_velocities[d][ip] = darcy_velocity[d];
+                }
   }
 
   return cache;
