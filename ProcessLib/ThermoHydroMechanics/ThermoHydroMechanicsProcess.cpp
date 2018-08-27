@@ -89,8 +89,11 @@ void ThermoHydroMechanicsProcess<DisplacementDim>::constructDofTable() {
           NumLib::ComponentOrder::BY_LOCATION);
 
   if (_use_monolithic_scheme) {
-    // For pressure, which is the first
-    std::vector<MeshLib::MeshSubset> all_mesh_subsets{*_mesh_subset_base_nodes};
+      // For temperature, which is the first
+      std::vector<MeshLib::MeshSubset> all_mesh_subsets{*_mesh_subset_base_nodes};
+
+      // For pressure, which is the second
+      all_mesh_subsets.push_back(*_mesh_subset_base_nodes);
 
     // For displacement.
     const int monolithic_process_id = 0;
@@ -122,16 +125,6 @@ void ThermoHydroMechanicsProcess<DisplacementDim>::constructDofTable() {
             NumLib::ComponentOrder::BY_LOCATION);
 
     // For pressure equation.
-    // Collect the mesh subsets with base nodes in a vector.
-    std::vector<MeshLib::MeshSubset> all_mesh_subsets_base_nodes{
-        *_mesh_subset_base_nodes};
-    _local_to_global_index_map_with_base_nodes =
-        std::make_unique<NumLib::LocalToGlobalIndexMap>(
-            std::move(all_mesh_subsets_base_nodes),
-            // by location order is needed for output
-            NumLib::ComponentOrder::BY_LOCATION);
-
-    // For temperature equation.
     // Collect the mesh subsets with base nodes in a vector.
     std::vector<MeshLib::MeshSubset> all_mesh_subsets_base_nodes{
         *_mesh_subset_base_nodes};

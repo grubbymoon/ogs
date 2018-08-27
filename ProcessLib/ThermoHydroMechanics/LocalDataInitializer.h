@@ -209,7 +209,7 @@ private:
       typename ShapeFunctionDisplacement::MeshElement>::IntegrationMethod;
 
   template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure>
-  using LAData = HydroMechanicsLocalAssembler<
+  using LAData = ThermoHydroMechanicsLocalAssembler<
       ShapeFunctionDisplacement, ShapeFunctionPressure,
       IntegrationMethod<ShapeFunctionDisplacement>, GlobalDim>;
 

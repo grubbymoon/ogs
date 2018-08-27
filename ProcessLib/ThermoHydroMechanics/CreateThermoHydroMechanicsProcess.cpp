@@ -106,6 +106,10 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
               variable_T->getNumberOfComponents());
   }
 
+  //auto const& fluid_config = config.getConfigSubtree("fluid");
+  //auto fluid_properties =
+      //MaterialLib::Fluid::createFluidProperties(fluid_config);
+
   // Constitutive relation.
   auto material =
       MaterialLib::Solids::createConstitutiveRelation<DisplacementDim>(
@@ -193,6 +197,14 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
   DBUG("Use \'%s\' as solid specific heat capacity parameter.",
        solid_specific_heat_capacity.name.c_str());
 
+  // specific heat capacity for fluid
+  auto &fluid_specific_heat_capacity = findParameter<double>(
+      config,
+      //! \ogs_file_param_special{prj__processes__process__THERMO_HYDRO_MECHANICS__fluid_specific_heat_capacity}
+      "fluid_specific_heat_capacity", parameters, 1);
+  DBUG("Use \'%s\' as fluid specific heat capacity parameter.",
+       solid_specific_heat_capacity.name.c_str());
+
   // thermal conductivity for solid // currently only considers isotropic
   auto &solid_thermal_conductivity = findParameter<double>(
       config,
@@ -200,6 +212,14 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
       "solid_thermal_conductivity", parameters, 1);
   DBUG("Use \'%s\' as solid thermal conductivity parameter.",
        solid_thermal_conductivity.name.c_str());
+
+  // thermal conductivity for fluid // currently only considers isotropic
+  auto &fluid_thermal_conductivity = findParameter<double>(
+      config,
+      //! \ogs_file_param_special{prj__processes__process__THERMO_HYDRO_MECHANICS__fluid_thermal_conductivity}
+      "fluid_thermal_conductivity", parameters, 1);
+  DBUG("Use \'%s\' as fluid thermal conductivity parameter.",
+       fluid_thermal_conductivity.name.c_str());
 
   // reference temperature
   auto &reference_temperature = findParameter<double>(
@@ -227,7 +247,7 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
 
   ThermoHydroMechanicsProcessData<DisplacementDim> process_data{
       std::move(material),
-      std::move(fluid_properties),
+      //std::move(fluid_properties),
       intrinsic_permeability,
       specific_storage,
       fluid_viscosity,
@@ -239,6 +259,8 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
       fluid_volumetric_thermal_expansion_coefficient,
       solid_specific_heat_capacity,
       solid_thermal_conductivity,
+      fluid_specific_heat_capacity,
+      fluid_thermal_conductivity,
       reference_temperature,
       specific_body_force};
 

@@ -171,6 +171,8 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
 
   double const &dt = _process_data.dt;
 
+  //MaterialLib::Fluid::FluidProperty::ArrayType vars;
+
   SpatialPosition x_position;
   x_position.setElementID(_element.getID());
 
@@ -187,6 +189,12 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     auto const &N_p = _ip_data[ip].N_p;
     auto const &dNdx_p = _ip_data[ip].dNdx_p;
 
+    // same shape function for pressure and temperature since they have the same order
+    auto const& N_T = N_p;
+    auto const& dNdx_T = dNdx_p;
+    auto const T_int_pt = N_T * T;
+    //auto const p_int_pt = N_T * p;
+
     auto const x_coord =
         interpolateXCoordinate<ShapeFunctionDisplacement,
                                ShapeMatricesTypeDisplacement>(_element, N_u);
@@ -202,7 +210,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     double const S = _process_data.specific_storage(t, x_position)[0];
                 double const K_over_mu =
                     _process_data.intrinsic_permeability(t, x_position)[0] /
-                    _process_data.getFluidViscosity(p_int_pt, T_int_pt);
+                    _process_data.fluid_viscosity(t, x_position)[0];
                 double const alpha_s =
                     _process_data.solid_linear_thermal_expansion_coefficient(
                         t, x_position)[0];
@@ -210,18 +218,18 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
                     _process_data.fluid_volumetric_thermal_expansion_coefficient(
                         t, x_position)[0];
                 double const lambda_f =
-                    _process_data.getFluidThermalConductivity(p_int_pt, T_int_pt);
+                    _process_data.fluid_thermal_conductivity(t, x_position)[0];
                 double const lambda_s =
                     _process_data.solid_thermal_conductivity(t, x_position)[0];
                 double const C_f =
-                    _process_data.getFluidHeatCapacity(p_int_pt, T_int_pt);
+                    _process_data.fluid_specific_heat_capacity(t, x_position)[0];
                 double const C_s =
                     _process_data.solid_specific_heat_capacity(t, x_position)[0];
                 double const T0 =
                     _process_data.reference_temperature(t, x_position)[0];
                 auto const alpha = _process_data.biot_coefficient(t, x_position)[0];
                 auto const rho_sr = _process_data.solid_density(t, x_position)[0];
-                auto const rho_f = _process_data.getFluidDensity(p_int_pt, T_int_pt);
+                auto const rho_f = _process_data.fluid_density(t, x_position)[0];
                 auto const porosity = _process_data.porosity(t, x_position)[0];
                 auto const& b = _process_data.specific_body_force;
     auto const &identity2 = MathLib::KelvinVector::Invariants<
@@ -385,12 +393,6 @@ ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
   auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
       pressure_size> const>(local_x.data() + pressure_index, pressure_size);
 
-  auto T =
-             Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
-                 pressure_size> const>(local_x.data() + temperature_index,
-                                       temperature_size);
-
-
   unsigned const n_integration_points = _integration_method.getNumberOfPoints();
 
   SpatialPosition x_position;
@@ -399,20 +401,16 @@ ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     x_position.setIntegrationPoint(ip);
     double const K_over_mu =
         _process_data.intrinsic_permeability(t, x_position)[0] /
-        _process_data.getFluidViscosity(p_int_pt, T_int_pt);
+        _process_data.fluid_viscosity(t, x_position)[0];
 
     auto const rho_f =
-        _process_data.getFluidDensity(p_int_pt, T_int_pt);
+        _process_data.fluid_density(t, x_position)[0];
     auto const& b = _process_data.specific_body_force;
 
     // Compute the velocity
     auto const& dNdx_p = _ip_data[ip].dNdx_p;
-                GlobalDimVectorType const darcy_velocity =
-                    -K_over_mu * dNdx_p * p - K_over_mu * rho_f * b;
-                for (unsigned d = 0; d < DisplacementDim; ++d)
-                {
-                    _darcy_velocities[d][ip] = darcy_velocity[d];
-                }
+    cache_matrix.col(ip).noalias() =
+        -K_over_mu * dNdx_p * p - K_over_mu * rho_f * b;
   }
 
   return cache;
