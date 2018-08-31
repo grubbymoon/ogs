@@ -147,7 +147,7 @@ void ThermoHydroMechanicsProcess<DisplacementDim>::initializeConcreteProcess(
     NumLib::LocalToGlobalIndexMap const &dof_table, MeshLib::Mesh const &mesh,
     unsigned const integration_order) {
   const int mechanical_process_id = _use_monolithic_scheme ? 0 : 1;
-  const int deformation_variable_id = _use_monolithic_scheme ? 1 : 0;
+  const int deformation_variable_id = _use_monolithic_scheme ? 2 : 0;
   ProcessLib::ThermoHydroMechanics::createLocalAssemblers<
       DisplacementDim, ThermoHydroMechanicsLocalAssembler>(
       mesh.getDimension(), mesh.getElements(), dof_table,
