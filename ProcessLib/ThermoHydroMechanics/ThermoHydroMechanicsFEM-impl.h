@@ -96,7 +96,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
                          std::vector<double> & /*local_K_data*/,
                          std::vector<double> &local_rhs_data,
                          std::vector<double> &local_Jac_data) {
-  assert(local_x.size() == pressure_size + displacement_size);
+  assert(local_x.size() == pressure_size + displacement_size + temperature_size);
 
   auto T = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
       temperature_size> const>(local_x.data() + temperature_index, temperature_size);
@@ -125,15 +125,15 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
 
   auto local_Jac = MathLib::createZeroedMatrix<
       typename ShapeMatricesTypeDisplacement::template MatrixType<
-          displacement_size + pressure_size,
-          displacement_size + pressure_size>>(
-      local_Jac_data, displacement_size + pressure_size,
-      displacement_size + pressure_size);
+          displacement_size + pressure_size + temperature_size,
+          displacement_size + pressure_size + temperature_size>>(
+      local_Jac_data, displacement_size + pressure_size + temperature_size,
+      displacement_size + pressure_size + temperature_size);
 
   auto local_rhs = MathLib::createZeroedVector<
       typename ShapeMatricesTypeDisplacement::template VectorType<
           displacement_size + pressure_size>>(
-      local_rhs_data, displacement_size + pressure_size);
+      local_rhs_data, displacement_size + pressure_size + temperature_size);
 
   typename ShapeMatricesTypePressure::NodalMatrixType MTT;
           MTT.setZero(temperature_size, temperature_size);

@@ -56,7 +56,7 @@ ThermoHydroMechanicsProcess<DisplacementDim>::getMatrixSpecifications(
     const int process_id) const {
   // For the monolithic scheme or the M process (deformation) in the staggered
   // scheme.
-  if (_use_monolithic_scheme || process_id == 1) {
+  if (_use_monolithic_scheme || process_id == 2) {
     auto const &l = *_local_to_global_index_map;
     return {l.dofSizeWithoutGhosts(), l.dofSizeWithoutGhosts(),
             &l.getGhostIndices(), &this->_sparsity_pattern};
@@ -98,7 +98,7 @@ void ThermoHydroMechanicsProcess<DisplacementDim>::constructDofTable() {
     // For displacement.
     const int monolithic_process_id = 0;
     std::generate_n(std::back_inserter(all_mesh_subsets),
-                    getProcessVariables(monolithic_process_id)[1]
+                    getProcessVariables(monolithic_process_id)[2]
                         .get()
                         .getNumberOfComponents(),
                     [&]() { return *_mesh_subset_all_nodes; });
@@ -216,9 +216,9 @@ template <int DisplacementDim>
 void ThermoHydroMechanicsProcess<
     DisplacementDim>::initializeBoundaryConditions() {
   if (_use_monolithic_scheme) {
-    const int process_id_of_hydromechancs = 0;
+    const int process_id_of_thermohydromechancs = 0;
     initializeProcessBoundaryConditionsAndSourceTerms(
-        *_local_to_global_index_map, process_id_of_hydromechancs);
+        *_local_to_global_index_map, process_id_of_thermohydromechancs);
     return;
   }
 
@@ -294,10 +294,10 @@ void ThermoHydroMechanicsProcess<DisplacementDim>::
           std::negate<double>());
     }
   };
-  if (_use_monolithic_scheme || _coupled_solutions->process_id == 0) {
+  if (_use_monolithic_scheme || _coupled_solutions->process_id == 1) {
     copyRhs(0, *_hydraulic_flow);
   }
-  if (_use_monolithic_scheme || _coupled_solutions->process_id == 1) {
+  if (_use_monolithic_scheme || _coupled_solutions->process_id == 2) {
     copyRhs(1, *_nodal_forces);
   }
 }

@@ -122,7 +122,7 @@ private:
   /// mechanical process. In the present implementation, the mechanical
   /// process has process_id == 1 in the staggered scheme.
   bool hasMechanicalProcess(int const process_id) const {
-    return _use_monolithic_scheme || process_id == 1;
+    return _use_monolithic_scheme || process_id == 2;
   }
 
   MeshLib::PropertyVector<double> *_nodal_forces = nullptr;

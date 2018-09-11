@@ -98,8 +98,8 @@ std::unique_ptr<Process> createThermoHydroMechanicsProcess(
   }
 
   DBUG("Associate temperature with process variable \'%s\'.",
-       variable_p->getName().c_str());
-  if (variable_p->getNumberOfComponents() != 1) {
+       variable_T->getName().c_str());
+  if (variable_T->getNumberOfComponents() != 1) {
     OGS_FATAL("Temperature process variable '%s' is not a scalar variable but has "
               "%d components.",
               variable_T->getName().c_str(),
