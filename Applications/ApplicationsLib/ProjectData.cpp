@@ -90,6 +90,9 @@
 #ifdef OGS_BUILD_PROCESS_THERMOMECHANICS
 #include "ProcessLib/ThermoMechanics/CreateThermoMechanicsProcess.h"
 #endif
+#ifdef OGS_BUILD_PROCESS_THERMOHYDROMECHANICS
+#include "ProcessLib/ThermoHydroMechanics/CreateThermoHydroMechanicsProcess.h"
+#endif
 #ifdef OGS_BUILD_PROCESS_TWOPHASEFLOWWITHPP
 #include "ProcessLib/TwoPhaseFlowWithPP/CreateTwoPhaseFlowWithPPProcess.h"
 #endif
@@ -570,6 +573,29 @@ void ProjectData::parseProcesses(BaseLib::ConfigTree const& processes_config,
                 case 3:
                     process = ProcessLib::ThermoMechanics::
                         createThermoMechanicsProcess<3>(
+                            *_mesh_vec[0], std::move(jacobian_assembler),
+                            _process_variables, _parameters, integration_order,
+                            process_config);
+                    break;
+            }
+        }
+        else
+#endif
+#ifdef OGS_BUILD_PROCESS_THERMOHYDROMECHANICS
+            if (type == "THERMO_MECHANICS")
+        {
+            switch (_mesh_vec[0]->getDimension())
+            {
+                case 2:
+                    process = ProcessLib::ThermoHydroMechanics::
+                        createThermoHydroMechanicsProcess<2>(
+                            *_mesh_vec[0], std::move(jacobian_assembler),
+                            _process_variables, _parameters, integration_order,
+                            process_config);
+                    break;
+                case 3:
+                    process = ProcessLib::ThermoHydroMechanics::
+                        createThermoHydroMechanicsProcess<3>(
                             *_mesh_vec[0], std::move(jacobian_assembler),
                             _process_variables, _parameters, integration_order,
                             process_config);
