@@ -237,7 +237,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
         MathLib::KelvinVector::KelvinVectorDimensions<DisplacementDim>::value>::
         identity2;
 
-  /*  double const delta_T(T_int_pt - T0);
+    double const delta_T(T_int_pt - T0);
     double const thermal_strain = alpha_s * delta_T;
 
     double const rho_s = rho_sr * (1 - 3 * thermal_strain);
@@ -249,39 +249,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     // displacement equation, displacement part
     //
     eps.noalias() = B * u;
-
-    auto C = _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, thermal_strain);*/
-
-    double const dT = N.dot(T_dot) * dt;
-    // calculate thermally induced strain
-    // assume isotropic thermal expansion
-    auto const alpha =
-        _process_data.linear_thermal_expansion_coefficient(
-            t, x_position)[0];
-    double const linear_thermal_strain_increment = alpha * dT;
-
-    //
-    // displacement equation, displacement part
-    //
-    eps.noalias() = B * u;
-
-    using Invariants = MathLib::KelvinVector::Invariants<
-        MathLib::KelvinVector::KelvinVectorDimensions<
-            DisplacementDim>::value>;
-
-    // assume isotropic thermal expansion
-    const double T_ip = N.dot(T);  // T at integration point
-    eps_m.noalias() =
-        eps - linear_thermal_strain_increment * Invariants::identity2;
-    auto&& solution = _ip_data[ip].solid_material.integrateStress(
-        t, x_position, dt, eps_m_prev, eps_m, sigma_prev, *state, T_ip);
-    eps_m.noalias() = eps;
-
-    if (!solution)
-        OGS_FATAL("Computation of local constitutive relation failed.");
-
-    MathLib::KelvinVector::KelvinMatrixType<DisplacementDim> C;
-    std::tie(sigma, state, C) = std::move(*solution);
+    auto C = _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u, thermal_strain, T_int_pt);
 
     local_Jac
         .template block<displacement_size, displacement_size>(
@@ -619,7 +587,7 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     eps.noalias() = B * u;
 
     //auto C = _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u);
-    auto const C = _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u);
+    auto const C = _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u, 0, _process_data.reference_temperature);
 
     local_Jac.noalias() += B.transpose() * C * B * w;
 
@@ -696,10 +664,27 @@ void ThermoHydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
     auto &eps = _ip_data[ip].eps;
     eps.noalias() = B * u;
 
-    _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u);
+    _ip_data[ip].updateConstitutiveRelation(t, x_position, dt, u, 0, _process_data.reference_temperature);
     //_ip_data[ip].updateConstitutiveRelation(t, x_position, dt, thermal_strain);
   }
 }
+
+//template <typename ShapeFunctionDisplacement, typename ShapeFunctionPressure,
+//          typename IntegrationMethod, int DisplacementDim>
+//void HydroMechanicsLocalAssembler<ShapeFunctionDisplacement,
+//                                  ShapeFunctionPressure, IntegrationMethod,
+//                                  DisplacementDim>::
+//    computeSecondaryVariableConcrete(double const /*t*/,
+/*                                     std::vector<double> const& local_x)
+{
+    auto p = Eigen::Map<typename ShapeMatricesTypePressure::template VectorType<
+        pressure_size> const>(local_x.data() + pressure_index, pressure_size);
+
+    NumLib::interpolateToHigherOrderNodes<
+        ShapeFunctionPressure, typename ShapeFunctionDisplacement::MeshElement,
+        DisplacementDim>(_element, _is_axially_symmetric, p,
+                         *_process_data.pressure_interpolated);
+}*/
 
 } // namespace ThermoHydroMechanics
 } // namespace ProcessLib

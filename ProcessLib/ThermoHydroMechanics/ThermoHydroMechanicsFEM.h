@@ -12,6 +12,7 @@
 #include <memory>
 #include <vector>
 
+#include "MaterialLib/PhysicalConstant.h"
 #include "MaterialLib/SolidModels/LinearElasticIsotropic.h"
 #include "MathLib/KelvinVector.h"
 #include "MathLib/LinAlg/Eigen/EigenMapTools.h"
@@ -62,8 +63,12 @@ struct IntegrationPointData final {
     material_state_variables->pushBackState();
   }
 
+  using Invariants = MathLib::KelvinVector::Invariants<
+                  MathLib::KelvinVector::KelvinVectorDimensions<
+                      DisplacementDim>::value>;
+
   template <typename DisplacementVectorType>
-  typename BMatricesType::KelvinMatrixType updateConstitutiveRelation(
+  typename BMatricesType::KelvinMatrixType updateConstitutiveRelationM(
       double const t,
       SpatialPosition const& x_position,
       double const dt,
@@ -82,6 +87,30 @@ struct IntegrationPointData final {
 
       return C;
   }
+
+  template <typename DisplacementVectorType>
+  typename BMatricesType::KelvinMatrixType updateConstitutiveRelation(
+          double const t,
+          SpatialPosition const& x_position,
+          double const dt,
+          DisplacementVectorType const& /*u*/,
+          double const thermal_strain,
+          double const T)
+      {
+          // assume isotropic thermal expansion
+          eps_m.noalias() = eps - thermal_strain * Invariants::identity2;
+          auto&& solution = solid_material.integrateStress(
+              t, x_position, dt, eps_m_prev, eps_m, sigma_eff_prev,
+              *material_state_variables, T);
+
+          if (!solution)
+              OGS_FATAL("Computation of local constitutive relation failed.");
+
+          MathLib::KelvinVector::KelvinMatrixType<DisplacementDim> C;
+          std::tie(sigma_eff, material_state_variables, C) = std::move(*solution);
+
+          return C;
+      }
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 };
@@ -151,7 +180,8 @@ public:
       _ip_data[ip].pushBackState();
     }
   }
-
+  void computeSecondaryVariableConcrete(
+      double const t, std::vector<double> const& local_x) override;
   void postNonLinearSolverConcrete(std::vector<double> const &local_x,
                                    double const t,
                                    bool const use_monolithic_scheme) override;
