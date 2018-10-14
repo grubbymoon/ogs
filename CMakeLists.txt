@@ -105,6 +105,7 @@ set(ProcessesList
     SmallDeformationNonlocal
     TES
     ThermalTwoPhaseFlowWithPP
+	ThermoHydroMechanics
     ThermoMechanicalPhaseField
     ThermoMechanics
     TwoPhaseFlowWithPP
